@@ -71,7 +71,7 @@
 "    in the .io file.                                                         "
 "                                                                             "
 "#############################################################################"
-"commented 2018 yana zlateva"
+"commented yana zlateva"
 
 %I4
 !INDENT F3;
@@ -1270,13 +1270,9 @@ REPLACE {$VERSION} WITH {
 "                                    ""to be run.  If your compiler gives you"
 "                                    ""problems with this, change to INTEGER*4"
 
-"start yana"
-"Cherenkov spectrum & angular distribution scoring"
-"!!currenty hardcoded, no input, no uncertainty calc., no parallel processing!!"
-REPLACE {$CESC_FLAG} WITH {0}    "0:don't,1/2/3:do score CE E/ang. spectra/both"
-REPLACE {$MAXCEBIN} WITH {40}    "# of Cherenkov energy spectrum bins"
-REPLACE {$MAXCABIN} WITH {45}    "# of Cherenkov angular spectrum bins"
-"end yana"
+REPLACE {$CESC_FLAG} WITH {0}    "0:don't, 1:do score CE E&Ang spectra - yana"
+REPLACE {$MAXCEBIN} WITH {40}    "Max # of Cherenkov E spectrum bins - yana"
+REPLACE {$MAXCABIN} WITH {45}    "Max # of Cherenkov Ang. spectrum bins - yana"
 
 REPLACE {$ONE-EPS} WITH {0.9999} "USED TO KEEP THE BEAM INSIDE THE TARGET"
 REPLACE {$NSWTCH} WITH {8}       "# OF NRC SWITCHES FOR CONTROLLING SCATTERING"
@@ -1287,11 +1283,11 @@ REPLACE {$GOODSTATS} WITH {20}   "if fewer than this number of particles "
                                  "deposit energy in a voxel, then a bad stats"
                                  "warning is output to the .egslst file"
 REPLACE {$MXSTACK} WITH {40}     "MAXIMUM STACK"
-REPLACE {$MAXZREG} WITH {200}    "yana""MAX # OF EDPN SCORING PLANAR ZONES"
-REPLACE {$MAXRADII} WITH {100}   "yana""MAX # OF EDPN SCORING RADIAL ZONES"
+REPLACE {$MAXZREG} WITH {300}    "yana" "MAX # OF EDPN SCORING PLANAR ZONES"
+REPLACE {$MAXRADII} WITH {20}    "yana" "MAX # OF EDPN SCORING RADIAL ZONES"
 REPLACE {$MAXRADI+1} WITH {{COMPUTE $MAXRADII + 1}}
                                  "MAX # OF EDPN SCORING RADIAL ZONES + 1"
-REPLACE {$MAXRZ} WITH {100}       "MAX(MAXRADII,MAXZREG)"
+REPLACE {$MAXRZ} WITH {300}      "yana" "MAX(MAXRADII,MAXZREG)"
 REPLACE {$MXRDIST} WITH {1000}   "# OF POINTS IN RADIAL DISTRIBUTION FIT"
 REPLACE {$MAXIT} WITH {4}        "MAX # OF PARAMETERS TO BE SCORED"
 "   IT=1 EDPN TO LOCAL MATERIAL EXCLUDING BREM CREATED BELOW PCUT, ATOMIC  "
@@ -1302,6 +1298,7 @@ REPLACE {$MAXIT} WITH {4}        "MAX # OF PARAMETERS TO BE SCORED"
 "   IT=4 LIKE IT=3 TO 2ND MATERIAL WITH TRANSPORT IN FIRST MATERIAL        "
 REPLACE {$MAXZPLANE} WITH {{COMPUTE $MAXZREG+1}}
 "                                MAX # OF PLANAR BOUNDARIES"
+REPLACE {$MAXCITH} WITH {10}	"MAX # OF CHERENKOV POLAR ANGLE BINS - yana"
 REPLACE {$MAXCMPTS} WITH {$MAXIT}"MAX COMPONENTS FOR GRID OUTPUTS"
 REPLACE {$MAXDOS} WITH {3}      "NUMBER OF DOSE RELATED COMPONENTS "
 REPLACE {$NSPR} WITH {2}        "STOPPING POWER RATIO INDEX       "
@@ -1551,9 +1548,11 @@ REPLACE {;COMIN/GEOM/;} WITH
 "       ===============          "
 {;COMMON/GEOM/
 ZPLANE($MAXZPLANE),RCYL(0:$MAXRADII),CYRAD2($MAXRADI+1),
-NZ,NR,NREG,NPLANE;
+NZ,NR,NREG,NPLANE,
+NTH;"yana"
 $REAL ZPLANE,RCYL,CYRAD2;
-$INTEGER NZ,NR,NREG,NPLANE;
+$INTEGER NZ,NR,NREG,NPLANE,
+	NTH;"yana"
 }
 "
 "GEOMETRICAL INFORMATION"
@@ -1657,11 +1656,13 @@ REPLACE {;COMIN/SCORE/;} WITH
 {;
 COMMON/SCORE/
 SCSTP,SCSTP2,SCEDPN,SCEDPN2,SCDOSE,SCDOSE2,SCDOSE_COV,
+SCEDPNTH,SCEDPNTH2,SCSPRTH_COV, "yana"
 SCSPR_COV, DELTA, DELTLG,DELTAT,PIISTP,
 SCSTP_LAST,SCDOSE_LAST,SCNUM,IHSTRY,
 SCSTP_TMP,SCEDPN_TMP,SCDOSE_TMP3,
+SCEDPNTH_TMP,BSTATTH, "yana"
 ifano,MXNP,ISTORE,IWATCH,IOUTSP, ICROSS,ITRACKE,BSTAT,BDSTAT,
-LMD,RINDINV21,RINDINV2,CETHR1,CETHR,CTHCLIM1,CTHCLIM2,CTHCLIM, "yana"
+LMD,RINDINV21,RINDINV2,CETHR1,CETHR,CTHCLIM1,CTHCLIM2,CTHCRES,CTHCLIM, "yana"
 SCCESPC,SCCASPC; "yana"
 REAL*8 SCSTP,SCSTP2,SCEDPN($MAXZPLANE,$MAXRADII,$MAXIT),
        SCEDPN2($MAXZPLANE,$MAXRADII,$MAXIT),
@@ -1669,40 +1670,51 @@ REAL*8 SCSTP,SCSTP2,SCEDPN($MAXZPLANE,$MAXRADII,$MAXIT),
        SCDOSE2($MAXZPLANE,$MAXRADII,$MAXDOS),
        SCDOSE_COV($MAXZPLANE,$MAXRADII,$MAXDOS-1),
        SCSPR_COV($MAXZPLANE,$MAXRADII,$NSPR),
+       SCEDPNTH($MAXZPLANE,$MAXRADII,$MAXCITH), "yana"
+       SCEDPNTH2($MAXZPLANE,$MAXRADII,$MAXCITH), "yana"
+       SCSPRTH_COV($MAXZPLANE,$MAXRADII,$MAXCITH), "yana"
        DELTA, DELTAT,DELTLG,PIISTP,
-       LMD($MAXCEBIN),RINDINV21,RINDINV2($MAXCEBIN),
-       CETHR1,CETHR($MAXCEBIN), "yana"
-       CTHCLIM1,CTHCLIM2,CTHCLIM($MAXCABIN), "yana"
+       LMD($MAXCEBIN),RINDINV2($MAXCEBIN),CETHR($MAXCEBIN), "yana"
        SCCESPC($MAXZPLANE,$MAXRADII,$MAXCEBIN), "yana"
+       CTHCLIM1($MAXCITH),CTHCLIM2($MAXCITH),CTHCRES, "yana"
+       CTHCLIM($MAXCABIN),RINDINV21,CETHR1, "yana"
        SCCASPC($MAXZPLANE,$MAXRADII,$MAXCABIN); "yana"
 $LONG_INT SCSTP_LAST,SCDOSE_LAST($MAXZPLANE,$MAXRADII),
           SCNUM($MAXZPLANE,$MAXRADII);
 $REAL SCSTP_TMP,SCEDPN_TMP($MAXZPLANE,$MAXRADII,$MAXIT),
-      SCDOSE_TMP3($MAXZPLANE,$MAXRADII);
+      SCDOSE_TMP3($MAXZPLANE,$MAXRADII),
+      SCEDPNTH_TMP($MAXZPLANE,$MAXRADII,$MAXCITH); "yana"
 $INTEGER IFANO,MXNP,ISTORE,IWATCH,IOUTSP,ICROSS,ITRACKE,
-         BSTAT($MAXZPLANE,$NSPR),BDSTAT($MAXZPLANE);
+         BSTAT($MAXZPLANE,$NSPR),BDSTAT($MAXZPLANE),
+	 BSTATTH($MAXZPLANE,$MAXCITH); "yana"
 $LONG_INT ihstry;
 }
 "
 "COMMON USED FOR SCORING IN AUSGAB
-"start yana"
-"LMD            = Cherenkov emission (CE) wavelength array; currently hardcoded"
-"RINDINV21      = 1/(refractive index)^2; hardcoded"
-"RINDINV2       = 1/(refractive index)^2 array; currently hardcoded"
-"CETHR1         = CE threshold"
-"CETHR          = CE threshold array"
-"CTHCLIM1       = cos(smaller CE scoring angle relative to z-axis)"
-"CTHCLIM2       = cos(larger CE scoring angle)"
-"CTHCLIM        = cos(tops of CE scoring angle bins) array; currently hardcoded"
-"SCCESPC        = CE energy spectrum scoring array"
-"SCCASPC        = CE angle spectrum scoring array; outputs as"
-"		    (1-1/n^2/beta^2) * stepsize of charged particle"
-"                   emitting within CTHCLIM (tops of) bins / kg of scoring vol."
-"                   / incident fluence * pi ( the last *pi is included and"
-"                   the Frank-Tamm constant is excluded to speed up the code)"
-"                     => divide final output by pi, multiply by Frank-Tamm"
-"                        constant, and normalize by angular bins"
-"end yana"
+"start yana
+"LMD            = Cherenkov emission (CE) wavelength array
+"RINDINV21      = 1/(refractive index)^2
+"RINDINV2       = 1/(refractive index)^2 array
+"CETHR1         = CE threshold
+"CETHR          = CE threshold array
+"CTHCLIM1       = cos(smaller CE scoring angle relative to z-axis)
+"CTHCLIM2       = cos(larger CE scoring angle)
+"CTHCLIM        = cos(tops of CE scoring angle bins) array
+"SCCESPC        = CE energy spectrum scoring array
+"SCCASPC        = CE angle spectrum scoring array;
+"                  outputs as (1-1/n^2/beta^2) * stepsize of charged particle
+"                   emitting within CTHCLIM (tops of) bins / kg of scoring vol.
+"                      / incident fluence * pi ( the last *pi is included and
+"                      the Frank-Tamm constant is excluded to speed up the code)
+"                      => divide final output by pi, multiply by Frank-Tamm
+"                       constant, and normalize by angular bins
+"SCEDPNTH(IZ,IX,ITH) & SCEDPNTH2(IZ,IX,ITH) = same as SCEDPN & SCEDPN2 (below)
+"			 except ITH (polar angle bin) replaces IT
+"SCEDPNTH_TMP(IZ,IX,ITH)	= temp. variable for SCEDPNTH
+"SCSPRTH_COV(IZ,IX,ITH) = same as SCSPR_COV(IZ,IX,1) but for ITH polar angle bin
+"NTH = # of Cherenkov scoring polar angle bins input
+"BSTATTH(IZ,ITH)	= same as BSTAT below but for ITH polar angle bin input
+"end yana
 "SCSTP               = no. of charged particle steps
 "SCSTP2              = no. of charged particle steps squared.  Eventually holds
 "                      uncertainty in SCSTP.
@@ -1847,13 +1859,16 @@ $LONG_INT ITEMP,JCASE;
 $INTEGER I,J,NBATCH,IZ,IX,MEDNUM,LGLE,IBATCH,IBTCH,NOSCAT,INOCAV,
          NOSCT2,INOMED,IRL,IT,ICASE,IRIN,NRCFLG,
          NDATA,I1,I2,I3,IERR,
-         IB; "yana"
+         IB,ITH; "yana"
 $REAL EI,EKMAX,DEPTH,VOLUME,RLOW2,WEIGHT,COHFAC,ECUTMN,factor,
       EK0,BATCHT,XIN,YIN,ZIN,UIN,VIN,WIN,FHPG,FMASS,FHPH,TEMP1,TEMP2;
 
 REAL*8 TSC,TSC2; "used to store data in .egsdat file for restart"
 
-REAL SCORE_TEMP,SCORE_NORM_NUM; "used for uncertainty analysis"
+REAL SCORE_TEMP,SCORE_NORM_NUM, "used for uncertainty analysis"
+     SCORETH_TEMP,SCORETH_TEMP2; "yana: store SCEDPN(IZ,IX,1) & "
+				 "SCEDPN2(IZ,IX,1) during uncertainty calc."
+				 "for varying input Cherenkov polar angles"
 
 " I/O stuff "
 $INTEGER egs_open_file, egs_open_datfile, rng_unit, data_unit;
@@ -2062,25 +2077,33 @@ EK0=EIN;
 
 "start yana"
 
-"DOSE/CE RATIO SCORING: Initialize 1/n^2, CE threshold, cos(polar angle limits)"
+"DOSE/CE RATIO SCORING: Initialize 1/n^2, CE threshold, cos(FOV angle limits)"
 "*** REFRACTIVE INDEX IS CURRENTLY HARD CODED ***"
-RINDINV21 = 1 / 1.34**2 ; "average n=1.34 at 400-600 nm in water (Daimon 2007)"
+
+RINDINV21 = 1 / 1.34**2 ; "average n=1.34 at 400-600 nm in water"
 CETHR1 = PRM * ( 1 / SQRT( 1 - RINDINV21 ) - 1 );
-CTHCLIM1 = COS( CTHCLIM1 * PI / 180. );
-CTHCLIM2 = COS( CTHCLIM2 * PI / 180. );
+DO ITH=1,NTH+1 [
+	CTHCLIM1(ITH) = COS( CTHCLIM1(ITH) * PI / 180. );
+	CTHCLIM2(ITH) = COS( CTHCLIM2(ITH) * PI / 180. );
+]
 
 "CE E SPECTRUM SCORING: Initialize lambda, 1/n^2, and CE threshold arrays"
 "*** CURRENTLY HARD CODED ***"
-DO IB = 1,$MAXCEBIN [ LMD(IB) = 0.3 + ( IB - 0.5 ) * 0.01 ; ] "/micrometer"
+
+DO IB = 1,$MAXCEBIN[
+        LMD(IB) = 0.3 + ( IB - 0.5 ) * 0.01 ; "/micrometer"
+]
 RINDINV2 = 1 / ( 1 + 5.684027565E-1 / ( 1 - 5.101829712E-3 / LMD**2 )
                    + 1.726177391E-1 / ( 1 - 1.821153936E-2 / LMD**2 )
                    + 2.086189578E-2 / ( 1 - 2.620722293E-2 / LMD**2 )
                    + 1.130748688E-1 / ( 1 - 1.069792721E+1 / LMD**2 ) );
 CETHR = PRM * ( 1 / SQRT( 1 - RINDINV2 ) - 1 );
 
-"CE ANG. SPECTRUM SCORING: Initialize cos(polar angle upper limit) array"
-"*** CURRENTLY HARD CODED ***"
-DO IB = 1,$MAXCABIN [ CTHCLIM(IB) = COS( IB * PI / $MAXCABIN ); ]
+"CE ANG. SPECTRUM SCORING: Initialize cos(FOV angle upper limit) array"
+
+DO IB = 1,$MAXCABIN[
+        CTHCLIM(IB) = COS( IB * PI / $MAXCABIN );
+]
 
 "end yana"
 
@@ -2330,6 +2353,22 @@ DO IBATCH=1,$NBATCH[
                                                  SCEDPN_TMP(IZ,IX,IT);
                   WRITE(data_unit,*)TSC,TSC2;
                ]
+               
+              "start yana"               
+               DO ITH=1,NTH[
+
+                  TSC=SCEDPNTH(IZ,IX,ITH)+SCEDPNTH_TMP(IZ,IX,ITH);
+                  TSC2=SCEDPNTH2(IZ,IX,ITH)+SCEDPNTH_TMP(IZ,IX,ITH)*
+                                                 SCEDPNTH_TMP(IZ,IX,ITH);
+
+                  WRITE(data_unit,*)TSC,TSC2;
+		  TSC=SCSPRTH_COV(IZ,IX,ITH)+SCEDPN_TMP(IZ,IX,1)*
+                                              SCEDPNTH_TMP(IZ,IX,ITH);
+                  WRITE(data_unit,*)TSC;
+
+               ]
+              "end yana
+
                TSC=SCDOSE(IZ,IX,1)+SCEDPN_TMP(IZ,IX,1)-
                                       SCEDPN_TMP(IZ,IX,3);
                TSC2=SCDOSE2(IZ,IX,1)+(SCEDPN_TMP(IZ,IX,1)-
@@ -2386,6 +2425,15 @@ DO IX=1,NR[
          SCEDPN2(IZ,IX,IT)=SCEDPN2(IZ,IX,IT)+SCEDPN_TMP(IZ,IX,IT)*
                                              SCEDPN_TMP(IZ,IX,IT);
       ]
+      
+      "start yana"
+      DO ITH=1,NTH[
+         SCEDPNTH(IZ,IX,ITH)=SCEDPNTH(IZ,IX,ITH)+SCEDPNTH_TMP(IZ,IX,ITH);
+         SCEDPNTH2(IZ,IX,ITH)=SCEDPNTH2(IZ,IX,ITH)+SCEDPNTH_TMP(IZ,IX,ITH)*
+                                             SCEDPNTH_TMP(IZ,IX,ITH);
+      ]
+      "end yana"
+
       SCDOSE(IZ,IX,1)=SCDOSE(IZ,IX,1)+SCEDPN_TMP(IZ,IX,1)-
                                       SCEDPN_TMP(IZ,IX,3);
       SCDOSE2(IZ,IX,1)=SCDOSE2(IZ,IX,1)+(SCEDPN_TMP(IZ,IX,1)-
@@ -2405,6 +2453,14 @@ DO IX=1,NR[
                             SCEDPN_TMP(IZ,IX,1)*SCEDPN_TMP(IZ,IX,2);
       SCSPR_COV(IZ,IX,2)=SCSPR_COV(IZ,IX,2)+SCEDPN_TMP(IZ,IX,3)*
                                             SCEDPN_TMP(IZ,IX,4);
+
+      "start yana"
+      DO ITH=1,NTH[
+        SCSPRTH_COV(IZ,IX,ITH)=SCSPRTH_COV(IZ,IX,ITH)+
+                               SCEDPN_TMP(IZ,IX,1)*SCEDPNTH_TMP(IZ,IX,ITH);
+      ]
+      "end yana"
+
       IF(SCDOSE_TMP3(IZ,IX)>0.)SCNUM(IZ,IX)=SCNUM(IZ,IX)+1;
    ]
 ]
@@ -2489,7 +2545,51 @@ DO IX=1,NR[
           "mark this as bad statistics"
                BSTAT(IZ,1)=-1;
                BSTAT(IZ,2)=-1;
+	       "start yana"
+	       DO ITH=1,NTH[
+	         BSTATTH(IZ,ITH)=-1;
+	       ]
+	       "end yana"
           ]
+
+          "start yana"
+          DO ITH=1,NTH[
+            IF (SCEDPNTH(IZ,IX,ITH) = 0.)[
+               SCEDPNTH(IZ,IX,ITH)=0.;
+               SCEDPNTH2(IZ,IX,ITH)=99.9;
+               BSTATTH(IZ,ITH)=-1; "FLAG FOR BAD STATISTICS"
+            ]
+            ELSE[" CALCULATE STOPPING POWER RATIO FOR REGULAR EDPN"
+                 SCORETH_TEMP = SCEDPN(IZ,IX,1);
+                 SCORETH_TEMP2 = SCEDPN2(IZ,IX,1);
+		 $ANALYZE(SCORETH_TEMP, :SCORE_NORM_NUM);
+                 $ANALYZE(SCEDPNTH,(IZ,IX,ITH):SCORE_NORM_NUM);
+                 IF(SCORETH_TEMP2=99.9 | SCEDPNTH2(IZ,IX,ITH)=99.9)[
+                    BSTATTH(IZ,ITH)=-1;
+                    SCSPRTH_COV(IZ,IX,ITH)=0.;
+                 ]
+                 ELSE[
+                    SCSPRTH_COV(IZ,IX,ITH)=SCSPRTH_COV(IZ,IX,ITH)/
+                                                                SCORE_NORM_NUM-
+                                 SCORETH_TEMP*SCEDPNTH(IZ,IX,ITH)/
+                                 (SCORE_NORM_NUM**2);
+                    SCSPRTH_COV(IZ,IX,ITH)=SCSPRTH_COV(IZ,IX,ITH)/
+                                    (SCORETH_TEMP*SCEDPNTH(IZ,IX,ITH)/
+				    (SCORE_NORM_NUM**2)*(SCORE_NORM_NUM-1));
+                 ]
+                 SCEDPNTH2(IZ,IX,ITH)=(SCORETH_TEMP2/100.)**2+
+                                      (SCEDPNTH2(IZ,IX,ITH)/100.)**2-
+                                      2*SCSPRTH_COV(IZ,IX,ITH);
+                 IF(SCEDPNTH2(IZ,IX,ITH)>0.) [
+                   SCEDPNTH2(IZ,IX,ITH)=SQRT(SCEDPNTH2(IZ,IX,ITH))*100;
+                 ]
+                 IF(SCEDPNTH2(IZ,IX,ITH)>99.9) SCEDPNTH2(IZ,IX,ITH)=99.9;
+                 SCEDPNTH(IZ,IX,ITH)=
+                   SCORETH_TEMP/SCEDPNTH(IZ,IX,ITH);
+                                  "no /RHO since same material - yana"
+            ]
+          ]
+          "end yana"
 
           IF (SCEDPN(IZ,IX,2) = 0.)[
                SCEDPN(IZ,IX,1)=0.;
@@ -2613,13 +2713,12 @@ DO IX=1,NR[
 
 	      "start yana"
               DO IB=1,$MAXCEBIN[
-                  SCCESPC(IZ,IX,IB)=SCCESPC(IZ,IX,IB)*1000/(FMASS*AINFLU);
-              ]
+                SCCESPC(IZ,IX,IB)=SCCESPC(IZ,IX,IB)*1000/(FMASS*AINFLU);
+              ] " * 1000 g/kg to normalize to SI mass unit (kg) "
+                " in SCDOSE calc above, this is included in 1.602e-10 "
               DO IB=1,$MAXCABIN[
-                  SCCASPC(IZ,IX,IB)=SCCASPC(IZ,IX,IB)*1000/(FMASS*AINFLU);
+                SCCASPC(IZ,IX,IB)=SCCASPC(IZ,IX,IB)*1000/(FMASS*AINFLU);
               ]
-	      " * 1000 g/kg to normalize to SI mass unit (kg) "
-              " in SCDOSE calc above, this is included in 1.602e-10 "
               "end yana"
 
           ]"end non-zero block"
@@ -2787,10 +2886,10 @@ SUBROUTINE AUSGAB(IARG);
 $IMPLICIT-NONE;
 
 $INTEGER IRL,IARG,IX,IZ,IQL,LATCHL,MEDL,LELKE,I,IP,IFLAG,IT,
-         IB,JB; "yana"
+         IB,JB,ITH; "yana"
 $REAL WTL,DEDXME,DEDXMP,DEDXMI,DEDXMJ,XSI,FTMP,EKEtmp,ELKEtmp;
 
-REAL*8 DEDXM1,DEDXM2,SRATIO,
+REAL*8 DEDXM1,DEDXM2,DEDXM20,SRATIO($MAXCITH), "yana"
        SCCESPC_TMP($MAXCEBIN),SCCASPC_TMP($MAXCABIN), "yana"
        CTHC,STHEC,CTHEC,CTHEPC,CTHEMC; "yana"
 
@@ -2978,189 +3077,185 @@ IF((EDEP ~= 0.0) & (WTL > 0.0) & (IARG < 5))[ "energy deposited"
         ELSEIF(EKEtmp - EDEP > DELTA)[ "a straight transport step "
                                        "the energy is always > DELTA"
 
-            "start yana"
+"start yana"
 
-            "SCORE DOSE/CE WITHIN SET POLAR ANGLE RNG - straight transport step"
-            "- code here actually scores SRATIO"
-            "  = PI/K (see write at end) * CE power / stopping power"
-            "- no constants (for speed) => *K/PI in output (see write at end)"
-            "- assumptions: constant refractive index, DELTA < CE threshold"
+"SCORE DOSE/CE WITHIN SET POLAR ANGLE RNG - straight transport step"
+"- code here actually scores SRATIO"
+"  = PI/K (see write at end) * CE power / stopping power"
+"- no constants (for speed) => *K/PI in output (see write at end)"
+"- assumptions: constant refractive index, DELTA < CE threshold"
 
-            IF( EKEtmp > CETHR1 ) [ "E0 > CE threshold => yes CE"
+IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
 
-                IF( EKEtmp-EDEP > CETHR1 ) [ "E always > CE thr"
+  IF( EKEtmp-EDEP > CETHR1 ) [ "E always > CE thr"
 
-                    DEDXM2 = 1. - RINDINV21 / ( 1. - 1. / ( EKE/PRM + 1. )**2 );
-		    	    "1 - 1/n^2/beta^2"
-                    CTHC = SQRT( 1. - DEDXM2 ); "cos(CE angle)"
+    DEDXM20 = 1. - RINDINV21 / ( 1. - 1. / ( EKE/PRM + 1. )**2 ); "1-1/(n*bt)^2"
+    CTHC = SQRT( 1. - DEDXM20 ); "cos(CE ang)"
 
-                ]ELSE [ "E falls below CE thr on step"
+  ]ELSE ["E falls below CE thr on step"
 
-                    EKE = (EKEtmp+CETHR1)/2.; "set KE to midpoint of CE step
-		    ELKE = LOG(EKE);
-                    CTHC = SQRT( RINDINV21 / 
-			   ( 1. - 1. / ( EKE/PRM + 1. )**2 ) );
-                    DEDXM2 = ( 1. - CTHC**2 ) * (EKEtmp-CETHR1)/EDEP;
-			   	     "multiply by ratio of CE step to full step"
+    EKE = (EKEtmp+CETHR1)/2.;  ELKE = LOG(EKE); "2018/04/27"
+    CTHC = SQRT( RINDINV21 / ( 1. - 1. / ( (EKEtmp+CETHR1)/2./PRM + 1. )**2 ) );
+    DEDXM20 = ( 1. - CTHC**2 ) * (EKEtmp-CETHR1)/EDEP;
 
-                ]
+  ]
+  
+              $SET INTERVAL ELKE,EKE; "prepare to interpolate in  data tables"
+            IF(IQL = -1) [$EVALUATE DEDXM1 USING EDEDX(ELKE);]
+                    ELSE [$EVALUATE DEDXM1 USING PDEDX(ELKE);] "MeV/cm - yana"
 
-                CTHEC = W(NP) * CTHC; "cos(particle theta) * cos(CE angle)"
-                STHEC = SQRT( ( 1.-W(NP)**2 ) * ( 1.-CTHC**2 ) );
-						"sin(particle theta)*sin(CE)"
-                CTHEPC = CTHEC - STHEC; "cos(particle theta + CE angle)"
-                CTHEMC = CTHEC + STHEC; "cos(particle theta - CE angle)"
+  CTHEC = W(NP) * CTHC; "cos(particle theta)*cos(CE ang)"
+  STHEC = SQRT( ( 1.-W(NP)**2 ) * ( 1.-CTHC**2 ) ); "sin(particle tht)*sin(CE)"
+  CTHEPC = CTHEC - STHEC; "cos(particle theta + CE ang)"
+  CTHEMC = CTHEC + STHEC; "cos(particle theta - CE ang)"
 
-                IF( CTHEPC < CTHCLIM1 & CTHEMC > CTHCLIM2 ) [ "CE in FOV"
+  DO ITH=1,(NTH+1) [
 
-                    IF( CTHEMC > CTHCLIM1 ) [
-                        IF( CTHEPC >= CTHCLIM2 ) [ "CE cone crosses FOV "
-						   "from above"
-                            DEDXM2 = ( PI - ACOS( (CTHCLIM1-CTHEC)/STHEC ) )
-				     * DEDXM2;
-                        ]ELSE [ "CE cone spans FOV"
-                            DEDXM2 = (   ACOS( (CTHCLIM2-CTHEC)/STHEC )
-                              	       - ACOS( (CTHCLIM1-CTHEC)/STHEC ) )
-				     * DEDXM2;
-                        ]
-                    ]ELSE [
-                        IF( CTHEPC >= CTHCLIM2 ) [ "FOV spans CE cone"
-                            DEDXM2 = PI * DEDXM2;
-                        ]ELSE [ "FOV crosses CE cone from above"
-                            DEDXM2 = ACOS( (CTHCLIM2-CTHEC)/STHEC ) * DEDXM2;
-                        ]
-                    ]
-                    $SET INTERVAL ELKE,EKE; "prepare to interpolate in  data"
-					    "tables"
-           	    IF(IQL = -1) [$EVALUATE DEDXM1 USING EDEDX(ELKE);]
-                            ELSE [$EVALUATE DEDXM1 USING PDEDX(ELKE);] "MeV/cm"
-		    SRATIO=DEDXM2/DEDXM1;
+  IF( CTHEPC < CTHCLIM1(ITH) & CTHEMC > CTHCLIM2(ITH) ) [ "CE in FOV"
+    IF( CTHEMC > CTHCLIM1(ITH) ) [
+      IF( CTHEPC >= CTHCLIM2(ITH) ) [ "CE cone crosses FOV from above"
+        DEDXM2 = ( PI - ACOS( (CTHCLIM1(ITH)-CTHEC)/STHEC ) ) * DEDXM20;
+      ]ELSE [ "CE cone spans FOV"
+        DEDXM2 = ( ACOS( (CTHCLIM2(ITH)-CTHEC)/STHEC )
+                  -ACOS( (CTHCLIM1(ITH)-CTHEC)/STHEC ) ) * DEDXM20;
+      ]
+    ]ELSE [
+      IF( CTHEPC >= CTHCLIM2(ITH) ) [ "FOV spans CE cone"
+        DEDXM2 = PI * DEDXM20;
+      ]ELSE [ "FOV crosses CE cone from above"
+        DEDXM2 = ACOS( (CTHCLIM2(ITH)-CTHEC)/STHEC ) * DEDXM20;
+      ]
+    ]
+  ]ELSE [DEDXM2=0.;] "no CE in FOV"
 
-                ]ELSE [ SRATIO=0.; ] "no CE in FOV"
+  SRATIO(ITH) = DEDXM2/DEDXM1; "ratio of energy depositions"
 
-            ]ELSE [ SRATIO=0.; ] "no CE (E always < CE thr.)"
+  ]
+]ELSE [ SRATIO = SRATIO * 0. ; ] "no CE (E always < CE thr.)"
 
-            "end score dose/CE ratio for straight transport step"
+"end score dose/CE ratio for straight transport step"
 
 
-            "SCORE CE ENERGY SPECTRUM for straight transport step"
-            "- assumes DELTA < minimum CE threshold"
-            "- no constants (for speed) => *K'/PI/lmd^2"
-   	    "  (K' = 2pi*alpha*z^2 = 458626.7 nm/cm)"
+IF $CESC_FLAG=10 ["begin CE E&Ang spectrum scoring: HARD CODED AT THIS STAGE"
 
-            IF ( $CESC_FLAG=1 | $CESC_FLAG=3 ) [ "begin CE spectrum scoring"
-                                                 "HARD CODED AT THIS STAGE"
+"SCORE CE ENERGY SPECTRUM for straight transport step"
+"assumes DELTA < Ethr_min (aprx 230 keV)"
+"no constants (for speed) => *K'/PI/lmd^2 (K' = 2pi*alpha*z^2 = 458626.7 nm/cm)"
 
-            DO IB = 1,$MAXCEBIN [
-                IF( EKEtmp > CETHR(IB) ) [ "E0 > CE threshold i"
+DO IB=1,$MAXCEBIN[
+  IF( EKEtmp > CETHR(IB) )[ "E0 > CE thr i"
 
-                    IF ( EKEtmp - EDEP > CETHR(IB) ) [ "E final > CE thr i"
-                        CTHC = SQRT( RINDINV2(IB) 
-			             / ( 1. - 1. / (EKE/PRM+1.)**2 ) );
-								"cos(CE ang i)"
-                        SCCESPC_TMP = ( 1 - CTHC**2 ) * TVSTEP ;
-                    ]ELSE [ "E falls below CE thr i on step"
-                        CTHC = SQRT( RINDINV2(IB) / ( 1. -
-			       1. / ( (EKEtmp+CETHR(IB))/2./PRM + 1. )**2 ) ); 
-                        SCCESPC_TMP = ( 1 - CTHC**2 ) * TVSTEP 
-				    * ( EKEtmp - CETHR(IB) ) / EDEP ;
-                    ]
+    IF ( EKEtmp - EDEP > CETHR(IB) )[ "Ef > CE thr i"
 
-                    CTHEC = W(NP) * CTHC;
-		    STHEC = SQRT( ( 1 - CTHC**2 ) * ( 1 - W(NP)**2 ) );
-                    CTHEPC = CTHEC - STHEC; 
-		    CTHEMC = CTHEC + STHEC;
+      CTHC = SQRT( RINDINV2(IB) / ( 1. -1. / (EKE/PRM+1.)**2 ) );"cos(CE ang i)"
+      SCCESPC_TMP = ( 1 - CTHC**2 ) * TVSTEP ;
 
-                    IF( CTHEPC < CTHCLIM1 & CTHEMC > CTHCLIM2 ) [ "CE in FOV"
-                        IF( CTHEMC > CTHCLIM1 ) [
-                            IF( CTHEPC >= CTHCLIM2 ) [
-                              SCCESPC_TMP = SCCESPC_TMP
-					  * (  PI 
-					     - ACOS( (CTHCLIM1-CTHEC)/STHEC ) );
-                            ]ELSE [
-                              SCCESPC_TMP = SCCESPC_TMP
-                                	  * (  ACOS( (CTHCLIM2-CTHEC)/STHEC ) 
-					     - ACOS( (CTHCLIM1-CTHEC)/STHEC ) );
-                            ]
-                        ]ELSE [
-                            IF( CTHEPC >= CTHCLIM2 ) [
-                              SCCESPC_TMP = SCCESPC_TMP * PI;
-                            ]ELSE [
-                              SCCESPC_TMP = SCCESPC_TMP
-					  * ACOS( (CTHCLIM2-CTHEC)/STHEC );
-                            ]
-                        ]
-                        SCCESPC(IZ,IX,IB) = SCCESPC(IZ,IX,IB) + SCCESPC_TMP(IB);
-                    ]ELSE [EXIT;]
+    ]ELSE[ "E falls below CE thr i on step"
 
-                ]ELSE [EXIT;]
-            ]"end score CE spectrum for straight transport step"
+      CTHC = SQRT( RINDINV2(IB) / ( 1.-1./(0.5*(EKEtmp+CETHR(IB))/PRM+1.)**2 ));
+      SCCESPC_TMP = ( 1 - CTHC**2 ) * TVSTEP * ( EKEtmp - CETHR(IB) ) / EDEP ;
 
-            ]"end flag for CE spectrum scoring
+    ]
 
+    CTHEC = W(NP) * CTHC; STHEC = SQRT( ( 1 - CTHC**2 ) * ( 1-W(NP)**2 ) );
+    CTHEPC = CTHEC-STHEC; CTHEMC = CTHEC+STHEC;
 
-            "SCORE CE POLAR ANGLE SPECTRUM for straight transport step"
-            "- assumptions: constant refractive index, DELTA < CE threshold"
-            "- no constants (for speed) => *K/PI/dTheta"
-	    "  (see SCCASPC declaration above)"
+    IF( CTHEPC < CTHCLIM1(1) & CTHEMC > CTHCLIM2(1) )[ "CE in FOV"
 
-            IF ( $CESC_FLAG=2 | $CESC_FLAG=3 ) [ "begin CE ang. distr'n scoring"
-                                                 "HARD CODED AT THIS STAGE"
+      IF( CTHEMC > CTHCLIM1(1) )[
 
-            IF( EKEtmp > CETHR1 ) [ "E0 > CE threshold"
+        IF( CTHEPC >= CTHCLIM2(1) )[
+          SCCESPC_TMP = SCCESPC_TMP*( PI - ACOS((CTHCLIM1(1)-CTHEC)/STHEC) );
+        ]ELSE[
+          SCCESPC_TMP = SCCESPC_TMP*
+            ( ACOS( (CTHCLIM2(1)-CTHEC)/STHEC ) 
+	    - ACOS( (CTHCLIM1(1)-CTHEC)/STHEC ) );
+        ]
 
-                IF ( EKEtmp - EDEP > CETHR1 ) [ "E always > CE thr"
-                    CTHC = SQRT( RINDINV21 / ( 1. - 1./(EKE/PRM+1.)**2 ) );
-								"cos(CE angle)"
-                    SCCASPC_TMP = ( 1-CTHC**2 ) * TVSTEP;
-                ]ELSE [ "E falls below CE thr on step"
-                    CTHC = SQRT( RINDINV21 /
-		          ( 1. - 1 ./ ( (EKEtmp+CETHR1)/2./PRM + 1. )**2 ) );
-                    SCCASPC_TMP = ( 1-CTHC**2 ) * TVSTEP * (EKEtmp-CETHR1)
-				/ EDEP ;
-                ]
+      ]ELSE[
 
-                CTHEC = W(NP) * CTHC;
-		STHEC = SQRT( ( 1 - CTHC**2 ) * ( 1 - W(NP)**2 ) );
-                CTHEPC = CTHEC - STHEC;
-		CTHEMC = CTHEC + STHEC;
+        IF( CTHEPC >= CTHCLIM2(1) )[
+          SCCESPC_TMP = SCCESPC_TMP*PI;
+        ]ELSE[
+          SCCESPC_TMP = SCCESPC_TMP*ACOS( (CTHCLIM2(2)-CTHEC)/STHEC );
+        ]
 
-                DO IB = 1,$MAXCABIN [
-                    IF( CTHEMC > CTHCLIM(IB) ) [ "start scoring"
-                        IF( CTHEPC > CTHCLIM(IB) ) [ "stop scoring"
+      ]
 
-                            SCCASPC(IZ,IX,IB) = SCCASPC(IZ,IX,IB) 
-					      + PI * SCCASPC_TMP(IB);
-                            EXIT;
+      SCCESPC(IZ,IX,IB) = SCCESPC(IZ,IX,IB) + SCCESPC_TMP(IB) ;
 
-                        ]ELSE [
+    ]ELSE [EXIT;]
 
-                            SCCASPC(IZ,IX,IB) = SCCASPC(IZ,IX,IB)
-                      	        + ( ACOS( (CTHCLIM(IB)-CTHEC)/STHEC ) )
-                      		  * SCCASPC_TMP(IB) ;
-                            DO JB = (IB+1) , $MAXCABIN [
-                              IF( CTHEPC > CTHCLIM(JB) ) [ "stop"
-                                SCCASPC(IZ,IX,JB) = SCCASPC(IZ,IX,JB)
-                          	  + ( PI - ACOS( (CTHCLIM(JB-1)-CTHEC)/STHEC ) )
-                          	    * SCCASPC_TMP(JB) ;
-                                EXIT;
-                              ]
-                              SCCASPC(IZ,IX,JB) = SCCASPC(IZ,IX,JB)
-                                  + (   ACOS( (CTHCLIM(JB)   - CTHEC)/STHEC )
-                                      - ACOS( (CTHCLIM(JB-1) - CTHEC)/STHEC ) )
-                        	    * SCCASPC_TMP(JB) ;
-                            ]
-                            EXIT;
+  ]ELSE [EXIT;]
+]"end score CE spectrum for straight transport step"
 
-                        ]
-                    ]
-                ]
+]
 
-            ]"end score CE angle for straight transport step"
+IF $CESC_FLAG=1 [
 
-            ]"end flag for CE angular distribution scoring
+"SCORE CE ANGLE SPECTRUM for straight transport step"
+"assumes (1)azimuthal uniformity,(2)constant n=1.34,(3)DELTA<CE thr"
+"no constants (for speed) => *K/PI/dTht (see SCCASPC declaration above)"
 
-            "end yana"
+IF( EKEtmp > CETHR1 )[ "E0 > CE thr"
+
+  IF ( EKEtmp - EDEP > CETHR1 )[ "E always > CE thr"
+
+    CTHC = SQRT( RINDINV21 / ( 1. - 1./(EKE/PRM+1.)**2 ) );"cos(CE ang)"
+    SCCASPC_TMP = ( 1-CTHC**2 ) * TVSTEP;
+
+  ]ELSE[ "E falls below CE thr on step"
+
+    CTHC = SQRT( RINDINV21 / ( 1. - 1./(0.5*(EKEtmp+CETHR1)/PRM+1.)**2 ) );
+    SCCASPC_TMP = ( 1-CTHC**2 ) * TVSTEP * (EKEtmp-CETHR1) / EDEP ;
+
+  ]
+
+  CTHEC = W(NP) * CTHC; STHEC = SQRT( ( 1-CTHC**2 ) * (1-W(NP)**2) );
+  CTHEPC = CTHEC-STHEC; CTHEMC = CTHEC+STHEC;
+
+  DO IB=1,$MAXCABIN[
+    IF( CTHEMC > CTHCLIM(IB) )[ "start scoring"
+
+      IF( CTHEPC > CTHCLIM(IB) )[ "stop scoring"
+
+        SCCASPC(IZ,IX,IB) = SCCASPC(IZ,IX,IB) + PI * SCCASPC_TMP(IB);
+        EXIT;
+
+      ]ELSE[
+
+        SCCASPC(IZ,IX,IB) = SCCASPC(IZ,IX,IB)
+          +( ACOS( (CTHCLIM(IB)-CTHEC)/STHEC ) )
+          * SCCASPC_TMP(IB) ;
+
+        DO JB=(IB+1),$MAXCABIN[
+
+          IF( CTHEPC > CTHCLIM(JB) )[ "stop"
+
+            SCCASPC(IZ,IX,JB) = SCCASPC(IZ,IX,JB)
+              +( PI - ACOS( (CTHCLIM(JB-1)-CTHEC)/STHEC ) )
+              * SCCASPC_TMP(JB) ;
+            EXIT;
+
+          ]
+
+          SCCASPC(IZ,IX,JB) = SCCASPC(IZ,IX,JB)
+            +(  ACOS((CTHCLIM(JB)   - CTHEC)/STHEC)
+              - ACOS((CTHCLIM(JB-1) - CTHEC)/STHEC) )
+            * SCCASPC_TMP(JB) ;
+
+        ]
+        EXIT;
+      ]
+
+    ]
+  ]
+
+]"end score CE angle for straight transport step"
+
+]"end CE E & Ang spectrum scoring
+
+"end yana"
 
         ]"end of straight transport step"
 
@@ -3175,7 +3270,7 @@ IF((EDEP ~= 0.0) & (WTL > 0.0) & (IARG < 5))[ "energy deposited"
               "and has EKE < DELTA.  We treat as if at AE"
 
             IF( iarg ~= 0 ) [ "stoppers  IARG = 1,2,3,4"
-               SRATIO = 0.0; "assumes Delta < CE threshold - yana"
+               SRATIO = SRATIO * 0.0; "assumes Delta < CE thr - yana"
                "SRATIO is just ratio at DELTA"
             ]
             ELSE [ "This is a step crossing delta, we set therefore"
@@ -3186,165 +3281,162 @@ IF((EDEP ~= 0.0) & (WTL > 0.0) & (IARG < 5))[ "energy deposited"
                    "DELTA as being the ration at DELTA"
                EKE = 0.5*(EKEtmp+DELTA); ELKE=LOG(EKE); "mid-point above delta"
 
-               "start yana"
+"start yana"
 
-               "SCORE DOSE/CE WITHIN SET POLAR ANGLE RNG - delta-crossing step"
-               "- code here actually scores SRATIO"
-               "  = PI/K (see write at end) * CE power / stopping power"
-               "- no constants (for speed)=> *K/PI in output (see write at end)"
-               "- assumptions: constant refractive index, DELTA < CE threshold"
+"SCORE DOSE/CE WITHIN SET POLAR ANGLE RNG - delta-crossing step"
+"- code here actually scores SRATIO"
+"  = PI/K (see write at end) * CE power / stopping power"
+"- no constants (for speed)=> *K/PI in output (see write at end)"
+"- assumptions: constant refractive index, DELTA < CE threshold"
 
-               IF( EKEtmp > CETHR1 ) [ "E0 > CE threshold => yes CE"
+IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
 
-                   EKE = (EKEtmp+CETHR1)/2.; ELKE = LOG(EKE);
-				"can do in EKE asgn. above instead"
+  EKE = (EKEtmp+CETHR1)/2.; ELKE = LOG(EKE); "can do in EKE asgn. above instead"
 
-                   DEDXM2 = 1. - RINDINV21 / 
-				( 1. - 1. / ( EKE/PRM + 1. )**2 );
+               $SET INTERVAL ELKE,EKE; "prepare to interpolate in  data tables"
+               IF(IQL = -1) [
+                   $EVALUATE DEDXM1 USING EDEDX(ELKE);
+               ]
+               ELSE [
+                   $EVALUATE DEDXM1 USING PDEDX(ELKE);
+               ]
 
-                   CTHC = SQRT( 1. - DEDXM2 );
-                   CTHEC = W(NP) * CTHC;
-                   STHEC = SQRT( ( 1.-W(NP)**2 ) * DEDXM2 );
-                   CTHEPC = CTHEC - STHEC;
-                   CTHEMC = CTHEC + STHEC;
+  DEDXM20 =  1. -  RINDINV21 / ( 1. - 1. / ( (EKEtmp+CETHR1)/2./PRM + 1. )**2 );
 
-                   DEDXM2 = DEDXM2 * (EKEtmp-CETHR1)/EDEP;
+  CTHC = SQRT( 1. - DEDXM20 );
+  CTHEC = W(NP) * CTHC;
+  STHEC = SQRT( ( 1.-W(NP)**2 ) * DEDXM20 );
+  CTHEPC = CTHEC - STHEC;
+  CTHEMC = CTHEC + STHEC;
 
-                   IF( CTHEPC < CTHCLIM1 & CTHEMC > CTHCLIM2 ) [ "CE in FOV"
+  DEDXM20 = DEDXM20 * (EKEtmp-CETHR1)/EDEP; "2018/05/01"
 
-                       IF( CTHEMC > CTHCLIM1 ) [
-                           IF( CTHEPC >= CTHCLIM2 )["CE cone cross FOV from abv"
-                               DEDXM2 = ( PI - ACOS( (CTHCLIM1-CTHEC)/STHEC ) ) 
-				      * DEDXM2;
-                           ]ELSE [ "CE cone spans FOV"
-                               DEDXM2 = (   ACOS( (CTHCLIM2-CTHEC)/STHEC )
-                                          - ACOS( (CTHCLIM1-CTHEC)/STHEC ) ) 
-				      * DEDXM2;
-                           ]
-                       ]ELSE [
-                           IF( CTHEPC >= CTHCLIM2 ) [ "FOV spans CE cone"
-                               DEDXM2 = PI * DEDXM2;
-                           ]ELSE [ "FOV crosses CE cone from above"
-                               DEDXM2 = ACOS( (CTHCLIM2-CTHEC)/STHEC ) * DEDXM2;
-                           ]
-                       ]
-                       $SET INTERVAL ELKE,EKE;
-					"prepare to interpolate in  data tables"
-        	       IF(IQL = -1) [ $EVALUATE DEDXM1 USING EDEDX(ELKE); ]
-                	       ELSE [ $EVALUATE DEDXM1 USING PDEDX(ELKE); ]
-              	       SRATIO=DEDXM2/DEDXM1;
+  DO ITH = 1,(NTH+1) [
 
-                   ]ELSE [ SRATIO=0.; ] "no CE in FOV"
+  IF( CTHEPC < CTHCLIM1(ITH) & CTHEMC > CTHCLIM2(ITH) ) [ "CE in FOV"
+    IF( CTHEMC > CTHCLIM1(ITH) ) [
+      IF( CTHEPC >= CTHCLIM2(ITH) ) [ "CE cone crosses FOV from above"
+        DEDXM2 = ( PI - ACOS( (CTHCLIM1(ITH)-CTHEC)/STHEC ) ) * DEDXM20;
+      ]ELSE [ "CE cone spans FOV"
+        DEDXM2 = ( ACOS( (CTHCLIM2(ITH)-CTHEC)/STHEC )
+                  -ACOS( (CTHCLIM1(ITH)-CTHEC)/STHEC ) ) * DEDXM20;
+      ]
+    ]ELSE [
+      IF( CTHEPC >= CTHCLIM2(ITH) ) [ "FOV spans CE cone"
+        DEDXM2 = PI * DEDXM20;
+      ]ELSE [ "FOV crosses CE cone from above"
+        DEDXM2 = ACOS( (CTHCLIM2(ITH)-CTHEC)/STHEC ) * DEDXM20;
+      ]
+    ]
+  ]ELSE [DEDXM2=0.;] "no CE in FOV"
 
-               ]ELSE [ SRATIO=0.; ] "no CE (E always < CE thr.)"
+  SRATIO(ITH) = DEDXM2/DEDXM1;
 
-               "end score dose/CE ratio for delta-crossing step"
+  ]
+
+]ELSE [ SRATIO = SRATIO * 0. ; ] "no CE (E always < CE thr.)"
+
+"end score dose/CE ratio for delta-crossing step"
 
 
-               "SCORE CE ENERGY SPECTRUM for delta-crossing step"
-               "- assumes DELTA < minimum CE threshold"
-               "- no constants (for speed) => *K'/PI/lmd^2"
-               "  (K' = 2pi*alpha*z^2 = 458626.7 nm/cm)"
+IF $CESC_FLAG=10 ["begin CE E&Ang spectrum scoring: HARD CODED AT THIS STAGE"
 
-               IF ( $CESC_FLAG=1 | $CESC_FLAG=3 ) [ "begin CE spectrum scoring"
-                                                    "HARD CODED AT THIS STAGE"
+"SCORE CE ENERGY SPECTRUM for delta-crossing step"
+"assumes DELTA < Ethr_min (aprx 230 keV)"
+"no constants (for speed) => *K'/PI/lmd^2 (K' = 2pi*alpha*z^2 = 458626.7 nm/cm)"
 
-               DO IB=1,$MAXCEBIN[
-                 IF( EKEtmp > CETHR(IB) ) [ "E0 > CE threshold i;"
-					    "Ef < CE thr since delta<min CE thr"
+DO IB=1,$MAXCEBIN[
+  IF( EKEtmp > CETHR(IB) )[ "E0 > CE thr i;Ef<thr since delta<thr min"
 
-                   CTHC = SQRT( RINDINV2(IB) /
-		                ( 1. - 1./(0.5*(EKEtmp+CETHR(IB))/PRM+1.)**2 ));
-                   SCCESPC_TMP = ( 1 - CTHC**2 ) * TVSTEP 
-			       * ( EKEtmp - CETHR(IB) ) / EDEP ;
+    CTHC = SQRT( RINDINV2(IB) / ( 1. - 1./(0.5*(EKEtmp+CETHR(IB))/PRM+1.)**2 ));
+    SCCESPC_TMP = ( 1 - CTHC**2 ) * TVSTEP * ( EKEtmp - CETHR(IB) ) / EDEP ;
 
-                   CTHEC = W(NP) * CTHC;
-		   STHEC = SQRT( (1-CTHC**2) * (1-W(NP)**2) );
-                   CTHEPC = CTHEC-STHEC;
-		   CTHEMC = CTHEC+STHEC ;
+    CTHEC = W(NP) * CTHC; STHEC = SQRT( (1-CTHC**2) * (1-W(NP)**2) );
+    CTHEPC = CTHEC-STHEC; CTHEMC = CTHEC+STHEC ;
 
-                   IF( CTHEPC < CTHCLIM1 & CTHEMC > CTHCLIM2 ) [ "CE in FOV"
-                     IF( CTHEMC > CTHCLIM1 ) [
-                       IF( CTHEPC >= CTHCLIM2 ) [
-                         SCCESPC_TMP = SCCESPC_TMP 
-				     * ( PI - ACOS( (CTHCLIM1-CTHEC)/STHEC ) );
-                       ]ELSE [
-                         SCCESPC_TMP = SCCESPC_TMP
-                           	     * (   ACOS( (CTHCLIM2-CTHEC)/STHEC )
-					 - ACOS( (CTHCLIM1-CTHEC)/STHEC ) );
-                       ]
-                     ]ELSE [
-                       IF( CTHEPC >= CTHCLIM2 ) [
-                         SCCESPC_TMP = SCCESPC_TMP * PI;
-                       ]ELSE [
-                         SCCESPC_TMP = SCCESPC_TMP 
-				     * ACOS( (CTHCLIM2-CTHEC)/STHEC );
-                       ]
-                     ]
-                     SCCESPC(IZ,IX,IB) = SCCESPC(IZ,IX,IB) + SCCESPC_TMP(IB) ;
-                   ]ELSE [EXIT;]
+    IF( CTHEPC < CTHCLIM1(1) & CTHEMC > CTHCLIM2(1) )[ "CE in FOV"
 
-                 ]ELSE [EXIT;]
-               ]"end score CE spectrum for delta-crossing step"
+      IF( CTHEMC > CTHCLIM1(1) )[
+        IF( CTHEPC >= CTHCLIM2(1) )[
+          SCCESPC_TMP = SCCESPC_TMP *( PI - ACOS( (CTHCLIM1(1)-CTHEC)/STHEC ) );
+        ]ELSE[
+          SCCESPC_TMP = SCCESPC_TMP*
+            ( ACOS( (CTHCLIM2(1)-CTHEC)/STHEC )
+	    - ACOS( (CTHCLIM1(1)-CTHEC)/STHEC ) );
+        ]
+      ]
+      ELSE[
+        IF( CTHEPC >= CTHCLIM2(1) )[
+          SCCESPC_TMP = SCCESPC_TMP * PI;
+        ]ELSE[
+          SCCESPC_TMP = SCCESPC_TMP * ACOS( (CTHCLIM2(1)-CTHEC)/STHEC );
+        ]
+      ]
 
-               ]"end flag for CE spectrum scoring"
+      SCCESPC(IZ,IX,IB) = SCCESPC(IZ,IX,IB) + SCCESPC_TMP(IB) ;
 
-               "SCORE CE POLAR ANGLE SPECTRUM for delta-crossing step"
-               "- assumptions: constant refractive index, DELTA < CE threshold"
-               "- no constants (for speed) => *K/PI/dTheta"
-               "  (see SCCASPC declaration above)"
+    ]ELSE [EXIT;]
 
-               IF ( $CESC_FLAG=2 | $CESC_FLAG=3 )["begin CE ang. dist'n scoring"
-                                                  "HARD CODED AT THIS STAGE"
+  ]ELSE [EXIT;]
+]"end score CE spectrum for delta-crossing step"
 
-               IF( EKEtmp > CETHR1 ) [ "E0 > CE threshold;"
-				       "Ef always < CE thr since delta < CE thr"
+]
 
-                 CTHC = SQRT( RINDINV21 
-			      / ( 1. - 1. /( (EKEtmp+CETHR1)/2./PRM+1. )**2 ) );
-                 SCCASPC_TMP = ( 1 - CTHC**2 ) * TVSTEP * (EKEtmp-CETHR1)/EDEP ;
+IF $CESC_FLAG=1 [
 
-                 CTHEC = W(NP) * CTHC;
-		 STHEC = SQRT( (1-CTHC**2) * (1-W(NP)**2) );
-                 CTHEPC = CTHEC - STHEC;
-		 CTHEMC = CTHEC + STHEC ;
+"SCORE CE ANGLE SPECTRUM for delta-crossing step"
+"assumes (1)azimuthal uniformity,(2)constant n=1.34,(3)DELTA<CE thr"
+"no constants (for speed) => *K/PI/dTht (see SCCASPC declaration above)"
 
-                 DO IB = 1,$MAXCABIN [
-                   IF( CTHEMC > CTHCLIM(IB) ) [ "start scoring"
-                     IF( CTHEPC > CTHCLIM(IB) ) [ "stop scoring"
+IF( EKEtmp > CETHR1 )["E0 > CE thr;E always falls < thr on step since delta<thr"
 
-                       SCCASPC(IZ,IX,IB) = SCCASPC(IZ,IX,IB)
-					 + PI * SCCASPC_TMP(IB) ;
-                       EXIT;
+  CTHC = SQRT( RINDINV21 / ( 1.-1./(0.5*(EKEtmp+CETHR1)/PRM+1.)**2 ) );
+  SCCASPC_TMP = ( 1 - CTHC**2 ) * TVSTEP * (EKEtmp-CETHR1) / EDEP ;
 
-                     ]ELSE [
+  CTHEC = W(NP) * CTHC; STHEC = SQRT( (1-CTHC**2) * (1-W(NP)**2) );
+  CTHEPC = CTHEC-STHEC; CTHEMC = CTHEC+STHEC ;
 
-                       SCCASPC(IZ,IX,IB) = SCCASPC(IZ,IX,IB)
-                         		 + ( ACOS( (CTHCLIM(IB)-CTHEC)/STHEC ) )
-                         		   * SCCASPC_TMP(IB) ;
-                       DO JB = (IB+1),$MAXCABIN [
-                         IF( CTHEPC > CTHCLIM(JB) ) [ "stop"
-                           SCCASPC(IZ,IX,JB) = SCCASPC(IZ,IX,JB)
-                               + ( PI - ACOS( (CTHCLIM(JB-1)-CTHEC)/STHEC ) )
-                                 * SCCASPC_TMP(JB) ;
-                           EXIT;
-                         ]
-                         SCCASPC(IZ,IX,JB) = SCCASPC(IZ,IX,JB)
-                             + (   ACOS( ( CTHCLIM(JB)   - CTHEC ) / STHEC )
-                                 - ACOS( ( CTHCLIM(JB-1) - CTHEC ) / STHEC ) )
-                               * SCCASPC_TMP(JB) ;
-                       ]
-                       EXIT;
+  DO IB=1,$MAXCABIN[
+    IF( CTHEMC > CTHCLIM(IB) )[ "start scoring"
 
-                     ]
-                   ]
-                 ]
+      IF( CTHEPC > CTHCLIM(IB) )[ "stop scoring"
+        SCCASPC(IZ,IX,IB) = SCCASPC(IZ,IX,IB) + PI * SCCASPC_TMP(IB) ;
+        EXIT;
+      ]
 
-               ]"end score CE angle for delta-crossing step"
+      ELSE[
 
-               ]"end flag for CE angular distribution scoring
+        SCCASPC(IZ,IX,IB) = SCCASPC(IZ,IX,IB)
+          +( ACOS( (CTHCLIM(IB)-CTHEC)/STHEC ) )
+          * SCCASPC_TMP(IB) ;
 
-               "end yana"
+        DO JB=(IB+1),$MAXCABIN[
+
+          IF( CTHEPC > CTHCLIM(JB) )[ "stop"
+            SCCASPC(IZ,IX,JB) = SCCASPC(IZ,IX,JB)
+              + ( PI - ACOS( (CTHCLIM(JB-1)-CTHEC)/STHEC ) )
+              * SCCASPC_TMP(JB) ;
+            EXIT;
+          ]
+
+          SCCASPC(IZ,IX,JB) = SCCASPC(IZ,IX,JB)
+            + (  ACOS( ( CTHCLIM(JB)   - CTHEC ) / STHEC )
+               - ACOS( ( CTHCLIM(JB-1) - CTHEC ) / STHEC ) )
+            * SCCASPC_TMP(JB) ;
+        ]
+
+        EXIT;
+
+      ]
+
+    ]
+  ]
+
+]"end score CE angle for delta-crossing step"
+
+]"end CE E & Ang spectrum scoring
+
+"end yana"
 
                ICROSS=ICROSS+1;  "count the crossers"
             ] "end of crossers block"
@@ -3370,11 +3462,17 @@ IF((EDEP ~= 0.0) & (WTL > 0.0) & (IARG < 5))[ "energy deposited"
         IF(IFLAG=0)["do not include bremsstrahlung photons created below PCUT"
                     "or discarded fluorescent energy for IT=1 and 2"
              SCEDPN_TMP(IZ,IX,1)=SCEDPN_TMP(IZ,IX,1)+FTMP;
-             SCEDPN_TMP(IZ,IX,2)=SCEDPN_TMP(IZ,IX,2)+FTMP*SRATIO;
+             SCEDPN_TMP(IZ,IX,2)=SCEDPN_TMP(IZ,IX,2)+FTMP*SRATIO(1); "yana"
+	     "start yana"
+	     DO ITH = 1,NTH [
+	       SCEDPNTH_TMP(IZ,IX,ITH) = SCEDPNTH_TMP(IZ,IX,ITH)
+					 + FTMP * SRATIO(ITH+1);
+	     ]
+	     "end yana"
         ]
         IF(IARG=0)[ "SCORE SANS ANY TRACK ENDS -recall we are in the EDEP block"
              SCEDPN_TMP(IZ,IX,3)=SCEDPN_TMP(IZ,IX,3)+FTMP;
-             SCEDPN_TMP(IZ,IX,4)=SCEDPN_TMP(IZ,IX,4)+FTMP*SRATIO;
+             SCEDPN_TMP(IZ,IX,4)=SCEDPN_TMP(IZ,IX,4)+FTMP*SRATIO(1);
         ]
     ]
     ELSE[
@@ -3396,6 +3494,15 @@ IF((EDEP ~= 0.0) & (WTL > 0.0) & (IARG < 5))[ "energy deposited"
                                                SCEDPN_TMP(IZ,IX,4);
         SCSPR_COV(IZ,IX,2)=SCSPR_COV(IZ,IX,2)+SCEDPN_TMP(IZ,IX,4)*
                                              SCEDPN_TMP(IZ,IX,3);
+	"start yana"
+	DO ITH = 1,NTH [
+          SCEDPNTH(IZ,IX,ITH)=SCEDPNTH(IZ,IX,ITH)+SCEDPNTH_TMP(IZ,IX,ITH);
+          SCEDPNTH2(IZ,IX,ITH)=SCEDPNTH2(IZ,IX,ITH)+SCEDPNTH_TMP(IZ,IX,ITH)*
+                                                 SCEDPNTH_TMP(IZ,IX,ITH);
+          SCSPRTH_COV(IZ,IX,ITH)=SCSPRTH_COV(IZ,IX,ITH)+SCEDPNTH_TMP(IZ,IX,ITH)*
+                                               SCEDPN_TMP(IZ,IX,1);
+	]
+	"end yana"
         "now add contributions to doses"
         SCDOSE(IZ,IX,1)=SCDOSE(IZ,IX,1)+SCEDPN_TMP(IZ,IX,1)-
                                         SCEDPN_TMP(IZ,IX,3);
@@ -3414,15 +3521,24 @@ IF((EDEP ~= 0.0) & (WTL > 0.0) & (IARG < 5))[ "energy deposited"
                                            SCDOSE_TMP3(IZ,IX);
         IF(IFLAG=0)[
            SCEDPN_TMP(IZ,IX,1)=FTMP;
-           SCEDPN_TMP(IZ,IX,2)=FTMP*SRATIO;
+           SCEDPN_TMP(IZ,IX,2)=FTMP*SRATIO(1); "yana"
+           "start yana"
+           DO ITH = 1,NTH [
+             SCEDPNTH_TMP(IZ,IX,ITH) = FTMP * SRATIO(ITH+1);
+           ]
+           "end yana"
         ]
         ELSE[
            SCEDPN_TMP(IZ,IX,1)=0.;
            SCEDPN_TMP(IZ,IX,2)=0.;
+	   "start yana"
+	   DO ITH = 1,NTH [
+             SCEDPNTH_TMP(IZ,IX,ITH) = 0.;
+           ] "end yana"
         ]
         IF(IARG=0)[
            SCEDPN_TMP(IZ,IX,3)=FTMP;
-           SCEDPN_TMP(IZ,IX,4)=FTMP*SRATIO;
+           SCEDPN_TMP(IZ,IX,4)=FTMP*SRATIO(1);
         ]
         ELSE[
            SCEDPN_TMP(IZ,IX,3)=0.;
@@ -3436,8 +3552,8 @@ IF((EDEP ~= 0.0) & (WTL > 0.0) & (IARG < 5))[ "energy deposited"
     IF((IWATCH > 1) & (IWATCH ~= 4))[
        OUTPUT FTMP/RHOR(IRL),IRL,IARG;
        (5x,' ***EDEP scored = ',E14.7,' MeV. IRL= ',I3,' IARG= ',I3);
-       OUTPUT FTMP*SRATIO/RHO(1),IRL,IARG;
-       (5x,' ***EDEP*SRATIO/RHO(1) scored = ',
+       OUTPUT FTMP*SRATIO(1)/RHO(1),IRL,IARG;
+       (5x,' ***EDEP*SRATIO(1)/RHO(1) scored = ',
        E14.7,' MeV. IRL= ',I3,' IARG= ',I3);
                         "not /RHO(2) since one material - yana"
     ]
@@ -3892,7 +4008,8 @@ CHARS,ELECIN,GEOM,IODAT1,IODAT2,MEDIA,MISC,
 RUSROU,SCORE,SOURCE,SPECTR,USEFUL,USER,RANDOM,GetInput,EDGE,COMPTON-DATA,
 EGS-VARIANCE-REDUCTION,EGS-IO/;
 
-$INTEGER ixxin,jxxin,n_ibcmp_warnings,IT,IX,IZ,ICOUNT;
+$INTEGER ixxin,jxxin,n_ibcmp_warnings,IT,IX,IZ,ICOUNT,
+					ITH; "yana"
 
 "***************************************************************************"
 "*                         User defined MACROS                             *"
@@ -3926,6 +4043,7 @@ INTEGER NUM_TITLE,
 "Cherenkov Scoring - yana"
         NUM_CEFOV1,
         NUM_CEFOV2,
+        NUM_CERES,
 
 "I/O Contol"
         NUM_IWATCH,
@@ -4000,27 +4118,45 @@ IVAL=IVAL+1;
 NUM_CEFOV1=IVAL;
 VALUES_SOUGHT(IVAL)='CHERENKOV START ANGLE (DEG)';
 TYPE(IVAL)=1;
-NVALUE(IVAL)=1;
+"NVALUE(IVAL)=1;
 VALUE_MIN(IVAL)=0.;
 VALUE_MAX(IVAL)=180.;
 DEFAULT(IVAL)=0.;
 $GET_INPUT(NUM_CEFOV1);
-CTHCLIM1=VALUE(NUM_CEFOV1,1);
 
 IVAL=IVAL+1;
 NUM_CEFOV2=IVAL;
 VALUES_SOUGHT(IVAL)='CHERENKOV STOP ANGLE (DEG)';
 TYPE(IVAL)=1;
-NVALUE(IVAL)=1;
-VALUE_MIN(IVAL)=CTHCLIM1;
+"NVALUE(IVAL)=1;
+VALUE_MIN(IVAL)=CTHCLIM1(1);
 VALUE_MAX(IVAL)=180.;
 DEFAULT(IVAL)=180.;
 $GET_INPUT(NUM_CEFOV2);
-CTHCLIM2=VALUE(NUM_CEFOV2,1);
 
-OUTPUT CTHCLIM1,CTHCLIM2;
-  (/' CHERENKOV START ANGLE:',T60,F6.2,' degrees'/
-    ' CHERENKOV STOP ANGLE:' ,T60,F6.2,' degrees'/);
+CTHCLIM1(1)=0.;
+CTHCLIM2(1)=180.;
+NTH=NVALUE(NUM_CEFOV1);
+DO J=1,NTH [
+  CTHCLIM1(J+1)=VALUE(NUM_CEFOV1,J);
+  CTHCLIM2(J+1)=VALUE(NUM_CEFOV2,J);
+]
+
+"IVAL=IVAL+1;
+"NUM_CERES=IVAL;
+"VALUES_SOUGHT(IVAL)='CHERENKOV ANGLE RESOLUTION (DEG)';
+"TYPE(IVAL)=1;
+"NVALUE(IVAL)=1;
+"VALUE_MIN(IVAL)=0.01;
+"VALUE_MAX(IVAL)=CTHCLIM2-CTHCLIM1;
+"DEFAULT(IVAL)=CTHCLIM2-CTHCLIM1;
+"$GET_INPUT(NUM_CERES);
+"CTHCRES=VALUE(NUM_CERES,1);
+
+"OUTPUT CTHCLIM1,CTHCLIM2,CTHCRES;
+"  (/' CHERENKOV START ANGLE:',T60,F6.2,' degrees'/
+"    ' CHERENKOV STOP ANGLE:',T60,F6.2,' degrees'/
+"    ' CHERENKOV ANGLE RESOLUTION:',T60,F6.2,' degrees'/);
 "stop yana"
 
 "************************"
@@ -4556,6 +4692,14 @@ IF(IRESTART = 0 | IRESTART=5)[ "FRESH START, SET EVERYTHING TO ZERO"
          SCEDPN(IZ,IX,IT)=0.; SCEDPN2(IZ,IX,IT)=0.;
          SCEDPN_TMP(IZ,IX,IT)=0.;
         ]
+
+	"start yana"
+        DO ITH=1,$MAXCITH[
+         SCEDPNTH(IZ,IX,ITH)=0.; SCEDPNTH2(IZ,IX,ITH)=0.;
+         SCEDPNTH_TMP(IZ,IX,ITH)=0.;
+        ]
+	"end yana"
+
         SCDOSE_TMP3(IZ,IX)=0.;
         DO IT=1,$MAXDOS[
          SCDOSE(IZ,IX,IT)=0.; SCDOSE2(IZ,IX,IT)=0.;
@@ -4918,7 +5062,7 @@ CHARACTER*4 LABELS($MAXCMPTS);
 
 $LONG_INT IMS;
 $INTEGER IX,IZ,IXD,IZD,IT,I,IRL,
-         IB; "yana"
+         IB,ITH; "yana"
 $REAL HISTXMIN,DMAX;
 
 "VARIABLES USED FOR PLOTTING"
@@ -5147,6 +5291,7 @@ WRITE(IOUT,305);
 "*PI/K to get MeV/(photon/eV) (not done above to speed up sim) - yana:"
 "K = alpha*z^2/(hbar*c) [ph/eV/cm], dN/dx/d(eV) = K(1-1/n^2/beta^2) [ph/cm/eV]"
 SCEDPN = SCEDPN * 0.0084929175215669; "yana"
+SCEDPNTH = SCEDPNTH * 0.0084929175215669; "yana"
 
 DO IX=1,NR[
   DO IZ=1,NZ[
@@ -5156,6 +5301,23 @@ DO IX=1,NR[
         IF (BSTAT(IZ,1) = -1) [WRITE(IOUT,315);]
   ]
 ]
+
+"start yana (print dose/CE ratio for range of polar angle inputs):"
+DO ITH=1,NTH[
+
+  WRITE(IOUT,311) ACOS(CTHCLIM1(ITH+1))/3.14159265359*180 ,
+		  ACOS(CTHCLIM2(ITH+1))/3.14159265359*180 ;
+  DO IX=1,NR[
+    DO IZ=1,NZ[
+        WRITE(IOUT,310) IZ,IX,ZPLANE(IZ),ZPLANE(IZ+1),
+                    SCEDPNTH(IZ,IX,ITH),
+		    (SCEDPNTH(IZ,IX,ITH)*SCEDPNTH2(IZ,IX,ITH)/100.);
+        IF (BSTATTH(IZ,ITH) = -1) [WRITE(IOUT,315);]
+    ]
+  ]
+]
+"end yana"
+
 IF( (NR*NZ) > 23)["CALL PRNTER(ICHPIN,ILPIN,IOUT,IPAGE);"
                 "WRITE THE HEADER"
                 write(iout,100) title; call egs_fdate(iout); write(iout,*);
@@ -5191,11 +5353,11 @@ DO IX=1,NR[
 
 
 "begin yana (still hard-coded scoring & bins; outputs to end of .egslst file)"
-IF ( $CESC_FLAG=1 | $CESC_FLAG=3 ) [
+IF $CESC_FLAG=10 [
 DO IX=1,NR[
   DO IZ=1,NZ[
         DO IB=1,$MAXCEBIN[
-        WRITE(IOUT,311) IZ,IX,ZPLANE(IZ),ZPLANE(IZ+1),
+        WRITE(IOUT,313) IZ,IX,ZPLANE(IZ),ZPLANE(IZ+1),
                         LMD(IB)*1000,SCCESPC(IZ,IX,IB);
         IF (BSTAT(IZ,1) = -1) [WRITE(IOUT,315);]
         ]
@@ -5203,11 +5365,11 @@ DO IX=1,NR[
 ]
 ]
 
-IF ( $CESC_FLAG=2 | $CESC_FLAG=3 ) [
+IF $CESC_FLAG=1 [
 DO IX=1,NR[
   DO IZ=1,NZ[
         DO IB=1,$MAXCABIN[
-        WRITE(IOUT,312) IZ,IX,ZPLANE(IZ),ZPLANE(IZ+1),
+        WRITE(IOUT,314) IZ,IX,ZPLANE(IZ),ZPLANE(IZ+1),
                         (IB-0.5)*180./$MAXCABIN,SCCASPC(IZ,IX,IB);
         IF (BSTAT(IZ,1) = -1) [WRITE(IOUT,315);]
         ]
@@ -5234,14 +5396,15 @@ RETURN;
              ' ','# of presta-II steps/total # of charged particle steps',
                  T61,F7.3,' +/-',0PF6.3,'%');
 305  FORMAT(/' Region',T19,'depth (cm)',T35,
-            ' spr (medium / med2)',T58,'dose/inc flu. Gy.cm**2'/);
+            ' scr (dose/ph eV kg)',T58,'dose/inc flu. Gy.cm**2'/); "yana"
 310  FORMAT(' NZ,NR=',I3,',',I3,F8.3,' -',F8.3,T33, F10.5,' (+/-',F8.5,')',
             T60,1PE10.3,'(+/-',0PF4.1,'%)');
-311  FORMAT(' NZ,NR=',I3,',',I3,F8.3,' -',F8.3,T33, F6.1, 1PE10.3);"yana"
-312  FORMAT(' NZ,NR=',I3,',',I3,F8.3,' -',F8.3,T33, F6.1, 1PE10.3);"yana"
+311  FORMAT( 'Polar angle range (deg): ' , F6.2 , ' to ' , F6.2 ); "yana"
+313  FORMAT(' NZ,NR=',I3,',',I3,F8.3,' -',F8.3,T33, F6.1, 1PE10.3);"yana"
+314  FORMAT(' NZ,NR=',I3,',',I3,F8.3,' -',F8.3,T33, F6.1, 1PE10.3);"yana"
 315  FORMAT(14X,' **** WARNING **** BAD STATISTICS!');
-320  FORMAT(/' ',14X,'***** spr with track ends *****');
-325  FORMAT(/' ',14X,'***** spr without track ends *****');
+320  FORMAT(/' ',14X,'***** scr with track ends *****'); "yana"
+325  FORMAT(/' ',14X,'***** scr without track ends *****'); "yana"
 350  FORMAT(/' ',T10,'**** percentage of dose in local medium from stoppers',
             '  ****' //
    ' Included fraction of stoppers includes those stoppers that come from'/
@@ -5266,12 +5429,17 @@ character*(*) file_name;
 real*8 TSCEDPN($MAXZREG,$MAXRADII,$MAXIT),TSCEDPN2($MAXZREG,$MAXRADII,$MAXIT),
        TSCDOSE($MAXZREG,$MAXRADII,$MAXDOS),TSCDOSE2($MAXZREG,$MAXRADII,$MAXDOS),
        TSCDOSE_COV($MAXZREG,$MAXRADII,2),TSCSPR_COV($MAXZREG,$MAXRADII,2),
-       TMPPIISTP,TSCSTP,TSCSTP2;
+       TMPPIISTP,TSCSTP,TSCSTP2,"start yana"
+       TSCEDPNTH($MAXZREG,$MAXRADII,$MAXCITH),
+       TSCEDPNTH2($MAXZREG,$MAXRADII,$MAXCITH),
+       TSCSPRTH_COV($MAXZREG,$MAXRADII,$MAXCITH);
+      "end yana"
 $REAL TMPTMCPU;
 $LONG_INT TMPNCASE,TMPNNREAD;
 $INTEGER TMPICROSS,TMPITRACKE,iorstrt;
 
-$INTEGER my_unit,egs_get_unit,iout,iz,ix,it,lnblnk1,irl;
+$INTEGER my_unit,egs_get_unit,iout,iz,ix,it,lnblnk1,irl,
+	 ith; "yana"
 $LOGICAL first_time;
 data first_time/.true./, iout/1/;
 save first_time,iout;
@@ -5290,6 +5458,12 @@ IF( first_time ) [
           DO it=1,$MAXIT [
                   /SCEDPN(IZ,IX,IT),SCEDPN2(IZ,IX,IT)/=0;
           ]
+	 "start yana"
+	  DO ith=1,NTH [
+                  /SCEDPNTH(IZ,IX,ITH),SCEDPNTH2(IZ,IX,ITH),
+		   SCSPRTH_COV(IZ,IX,ITH)/=0;
+	  ]
+	 "end yana"
           DO it=1,$MAXDOS[
                  /SCDOSE(IZ,IX,IT),SCDOSE2(IZ,IX,IT)/=0;
           ]
@@ -5310,6 +5484,13 @@ DO IZ=1,NZ[
           DO IT=1,$MAXIT[
              READ(iorstrt,*,END=:EOFC:)TSCEDPN(IZ,IX,IT),TSCEDPN2(IZ,IX,IT);
           ]
+	 "start yana"
+	  DO ITH=1,NTH[
+	     READ(iorstrt,*,END=:EOFC:)TSCEDPNTH(IZ,IX,ITH),
+				       TSCEDPNTH2(IZ,IX,ITH);
+	     READ(iorstrt,*,END=:EOFC:)TSCSPRTH_COV(IZ,IX,ITH);
+	  ]
+	 "end yana"
           DO IT=1,$MAXDOS[
              READ(iorstrt,*,END=:EOFC:)TSCDOSE(IZ,IX,IT),TSCDOSE2(IZ,IX,IT);
           ]
@@ -5334,6 +5515,14 @@ DO IZ=1,NZ[
              SCEDPN(IZ,IX,IT)=SCEDPN(IZ,IX,IT)+TSCEDPN(IZ,IX,IT);
              SCEDPN2(IZ,IX,IT)=SCEDPN2(IZ,IX,IT)+TSCEDPN2(IZ,IX,IT);
           ]
+	 "start yana"
+	  DO ITH=1,NTH[
+	     SCEDPNTH(IZ,IX,ITH)=SCEDPNTH(IZ,IX,ITH)+TSCEDPNTH(IZ,IX,ITH);
+             SCEDPNTH2(IZ,IX,ITH)=SCEDPNTH2(IZ,IX,ITH)+TSCEDPNTH2(IZ,IX,ITH);
+	     SCSPRTH_COV(IZ,IX,ITH)=SCSPRTH_COV(IZ,IX,ITH)
+				   +TSCSPRTH_COV(IZ,IX,ITH);
+	  ]
+	 "end yana" 
           DO IT=1,$MAXDOS[
              SCDOSE(IZ,IX,IT)=SCDOSE(IZ,IX,IT)+TSCDOSE(IZ,IX,IT);
              SCDOSE2(IZ,IX,IT)=SCDOSE2(IZ,IX,IT)+TSCDOSE2(IZ,IX,IT);
