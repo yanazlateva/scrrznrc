@@ -1,5 +1,5 @@
 # $Id: sprrznrc_template.egsinp,v 1.4 2011/05/02 22:27:07 mainegra Exp $
-# modified, 2017/11/22 - yana zlateva
+# modified 2017, 2019 - yana zlateva
  TITLE=  phsp_scrrznrc
                         #Input file to SPRRZnrc,
                         #modified to score dose/Cherenkov (CE) ratio
@@ -103,9 +103,12 @@
 # START REGION=  2, 282
 # STOP REGION= 281, 351
 
- ######## Cherenkov scoring polar angle (relative to beam axis) bandwidth:
- CHERENKOV START ANGLE (DEG)=	170.	# default = min = 0.; max = 180.
- CHERENKOV STOP ANGLE (DEG)=	0.	# default = max = 180.; min=start angle
+# Cherenkov scoring polar angle (relative to beam axis) bandwidth & resolution
+# (default: 0. and 180..; min: 0. and start angle value; max: 180.):
+ CHERENKOV START ANGLE (DEG)=	   85., 0., 45.
+					# default = min = 0.; max = 180.
+ CHERENKOV STOP ANGLE (DEG)=  	   95., 90., 135.
+					# default = max = 180.; min=start angle
 
  :stop geometrical inputs:
  #########################
