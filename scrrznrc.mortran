@@ -2080,7 +2080,7 @@ EK0=EIN;
 "DOSE/CE RATIO SCORING: Initialize 1/n^2, CE threshold, cos(FOV angle limits)"
 "*** REFRACTIVE INDEX IS CURRENTLY HARD CODED ***"
 
-RINDINV21 = 1 / 1.34**2 ; "average n=1.34 at 400-600 nm in water"
+RINDINV21 = 1 / 1.3367**2 ; "average n=1.34 at 400-600 nm in water"
 CETHR1 = PRM * ( 1 / SQRT( 1 - RINDINV21 ) - 1 );
 DO ITH=1,NTH+1 [
 	CTHCLIM1(ITH) = COS( CTHCLIM1(ITH) * PI / 180. );
@@ -2891,7 +2891,7 @@ $REAL WTL,DEDXME,DEDXMP,DEDXMI,DEDXMJ,XSI,FTMP,EKEtmp,ELKEtmp;
 
 REAL*8 DEDXM1,DEDXM2,DEDXM20,SRATIO($MAXCITH), "yana"
        SCCESPC_TMP($MAXCEBIN),SCCASPC_TMP($MAXCABIN), "yana"
-       CTHC,STHEC,CTHEC,CTHEPC,CTHEMC; "yana"
+       CTHC,STHEC,CTHEC,CTHEPC,CTHEMC, Wtmp; "yana"
 
 ;COMIN/ ELECIN, EPCONT, GEOM, MEDIA, MISC, PHOTIN, RUSROU, PRINTC, SCORE,
         SOURCE, STACK, THRESH, UPHIOT, USEFUL, USER, RANDOM,
@@ -3085,7 +3085,12 @@ IF((EDEP ~= 0.0) & (WTL > 0.0) & (IARG < 5))[ "energy deposited"
 "- no constants (for speed) => *K/PI in output (see write at end)"
 "- assumptions: constant refractive index, DELTA < CE threshold"
 
+
 IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
+
+  Wtmp = (z_final-Z(NP))
+         / SQRT( (x_final-X(NP))**2 + (y_final-Y(NP))**2
+                                    + (z_final-Z(NP))**2  );
 
   IF( EKEtmp-EDEP > CETHR1 ) [ "E always > CE thr"
 
@@ -3104,8 +3109,8 @@ IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
             IF(IQL = -1) [$EVALUATE DEDXM1 USING EDEDX(ELKE);]
                     ELSE [$EVALUATE DEDXM1 USING PDEDX(ELKE);] "MeV/cm - yana"
 
-  CTHEC = W(NP) * CTHC; "cos(particle theta)*cos(CE ang)"
-  STHEC = SQRT( ( 1.-W(NP)**2 ) * ( 1.-CTHC**2 ) ); "sin(particle tht)*sin(CE)"
+  CTHEC = Wtmp * CTHC; "cos(particle theta)*cos(CE ang)"
+  STHEC = SQRT( ( 1.-Wtmp**2 ) * ( 1.-CTHC**2 ) ); "sin(particle tht)*sin(CE)"
   CTHEPC = CTHEC - STHEC; "cos(particle theta + CE ang)"
   CTHEMC = CTHEC + STHEC; "cos(particle theta - CE ang)"
 
@@ -3291,6 +3296,10 @@ IF( EKEtmp > CETHR1 )[ "E0 > CE thr"
 
 IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
 
+  Wtmp = (z_final-Z(NP))
+         / SQRT( (x_final-X(NP))**2 + (y_final-Y(NP))**2
+                                    + (z_final-Z(NP))**2  );
+
   EKE = (EKEtmp+CETHR1)/2.; ELKE = LOG(EKE); "can do in EKE asgn. above instead"
 
                $SET INTERVAL ELKE,EKE; "prepare to interpolate in  data tables"
@@ -3304,8 +3313,8 @@ IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
   DEDXM20 =  1. -  RINDINV21 / ( 1. - 1. / ( (EKEtmp+CETHR1)/2./PRM + 1. )**2 );
 
   CTHC = SQRT( 1. - DEDXM20 );
-  CTHEC = W(NP) * CTHC;
-  STHEC = SQRT( ( 1.-W(NP)**2 ) * DEDXM20 );
+  CTHEC = Wtmp * CTHC;
+  STHEC = SQRT( ( 1.-Wtmp**2 ) * DEDXM20 );
   CTHEPC = CTHEC - STHEC;
   CTHEMC = CTHEC + STHEC;
 
