@@ -2889,9 +2889,9 @@ $INTEGER IRL,IARG,IX,IZ,IQL,LATCHL,MEDL,LELKE,I,IP,IFLAG,IT,
          IB,JB,ITH; "yana"
 $REAL WTL,DEDXME,DEDXMP,DEDXMI,DEDXMJ,XSI,FTMP,EKEtmp,ELKEtmp;
 
-REAL*8 DEDXM1,DEDXM2,DEDXM20,SRATIO($MAXCITH), "yana"
+REAL*8 DEDXM1,DEDXM2,DEDXM20,SRATIO($MAXCITH),SRATIO1($MAXCITH),a, "yana"
        SCCESPC_TMP($MAXCEBIN),SCCASPC_TMP($MAXCABIN), "yana"
-       CTHC,STHEC,CTHEC,CTHEPC,CTHEMC, Wtmp; "yana"
+       CTHC,STHEC,CTHEC,CTHEPC,CTHEMC; "yana"
 
 ;COMIN/ ELECIN, EPCONT, GEOM, MEDIA, MISC, PHOTIN, RUSROU, PRINTC, SCORE,
         SOURCE, STACK, THRESH, UPHIOT, USEFUL, USER, RANDOM,
@@ -3079,6 +3079,7 @@ IF((EDEP ~= 0.0) & (WTL > 0.0) & (IARG < 5))[ "energy deposited"
 
 "start yana"
 
+
 "SCORE DOSE/CE WITHIN SET POLAR ANGLE RNG - straight transport step"
 "- code here actually scores SRATIO"
 "  = PI/K (see write at end) * CE power / stopping power"
@@ -3086,21 +3087,75 @@ IF((EDEP ~= 0.0) & (WTL > 0.0) & (IARG < 5))[ "energy deposited"
 "- assumptions: constant refractive index, DELTA < CE threshold"
 
 
+"renorm applicable cosines (wasn't found to make a difference but just in case):
+"placed before CE code so it also applies to CE spectra below if scored
+a = SQRT( U(NP)**2 + V(NP)**2 + W(NP)**2 );
+"U(NP) = U(NP)/a; V(NP) = V(NP)/a;
+W(NP) = W(NP)/a;
+a = SQRT( u_final**2 + v_final**2 + w_final**2 );
+"u_final = u_final/a; v_final = v_final/a;
+w_final = w_final/a;
+
+
 IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
 
-  Wtmp = (z_final-Z(NP))
-         / SQRT( (x_final-X(NP))**2 + (y_final-Y(NP))**2
-                                    + (z_final-Z(NP))**2  );
+  a = EDEP/2.;
 
-  IF( EKEtmp-EDEP > CETHR1 ) [ "E always > CE thr"
+  IF( EKEtmp-a > CETHR1 ) [ "E always > CE thr on 1st substep"
 
-    DEDXM20 = 1. - RINDINV21 / ( 1. - 1. / ( EKE/PRM + 1. )**2 ); "1-1/(n*bt)^2"
-    CTHC = SQRT( 1. - DEDXM20 ); "cos(CE ang)"
+  IF( EKEtmp-EDEP > CETHR1 ) [ "E always > CE thr on 2nd substep"
 
-  ]ELSE ["E falls below CE thr on step"
+    CTHC = SQRT( RINDINV21 / ( 1. - 1. / ( EKE/PRM + 1. )**2 ) );
+    DEDXM20 = ( 1. - CTHC**2 ) * (1-a/EDEP);
+  
+  ]ELSE ["E falls below CE thr on 2nd substep"
 
-    EKE = (EKEtmp+CETHR1)/2.;  ELKE = LOG(EKE); "2018/04/27"
-    CTHC = SQRT( RINDINV21 / ( 1. - 1. / ( (EKEtmp+CETHR1)/2./PRM + 1. )**2 ) );
+    EKE = ( EKEtmp + CETHR1 ) / 2.; ELKE = LOG(EKE);
+    CTHC = SQRT( RINDINV21 / ( 1. - 1. / ( EKE/PRM + 1. )**2 ) );
+    DEDXM20 = ( 1. - CTHC**2 ) * (EKEtmp-a-CETHR1)/EDEP;
+  
+  ]
+              
+              $SET INTERVAL ELKE,EKE; "prepare to interpolate in  data tables"
+            IF(IQL = -1) [$EVALUATE DEDXM1 USING EDEDX(ELKE);] 
+                    ELSE [$EVALUATE DEDXM1 USING PDEDX(ELKE);] "MeV/cm - yana"
+
+  CTHEC = w_final * CTHC; "cos(particle theta)*cos(CE ang)"
+  STHEC = SQRT( ( 1.-w_final**2 ) * ( 1.-CTHC**2 ) ); "sin(particle tht)*sin(CE)"
+  CTHEPC = CTHEC - STHEC; "cos(particle theta + CE ang)"
+  CTHEMC = CTHEC + STHEC; "cos(particle theta - CE ang)"
+  
+  DO ITH=1,(NTH+1) [ "score CE in each input polar angle range"
+  
+  IF( CTHEPC < CTHCLIM1(ITH) & CTHEMC > CTHCLIM2(ITH) ) [ "CE in FOV"
+    IF( CTHEMC > CTHCLIM1(ITH) ) [
+      IF( CTHEPC >= CTHCLIM2(ITH) ) [ "CE cone crosses FOV from above"
+        DEDXM2 = ( PI - ACOS( (CTHCLIM1(ITH)-CTHEC)/STHEC ) ) * DEDXM20;
+      ]ELSE [ "CE cone spans FOV"
+        DEDXM2 = ( ACOS( (CTHCLIM2(ITH)-CTHEC)/STHEC ) 
+                  -ACOS( (CTHCLIM1(ITH)-CTHEC)/STHEC ) ) * DEDXM20;
+      ]
+    ]ELSE [
+      IF( CTHEPC >= CTHCLIM2(ITH) ) [ "FOV spans CE cone"
+        DEDXM2 = PI * DEDXM20;
+      ]ELSE [ "FOV crosses CE cone from above"
+        DEDXM2 = ACOS( (CTHCLIM2(ITH)-CTHEC)/STHEC ) * DEDXM20;
+      ]
+    ]
+  ]ELSE [DEDXM2=0.;] "no CE in FOV"
+  
+  SRATIO1(ITH) = DEDXM2/DEDXM1; "ratio of energy depositions"
+  
+  ]
+
+    CTHC = SQRT( RINDINV21 / ( 1. - 1. / ( EKE/PRM + 1. )**2 ) );
+    DEDXM20 = ( 1. - CTHC**2 ) * a/EDEP;
+
+  ]ELSE ["E falls below CE thr on 1st substep"
+
+    SRATIO1 = SRATIO1 * 0. ;
+    EKE = (EKEtmp+CETHR1)/2.;  ELKE = LOG(EKE);
+    CTHC = SQRT( RINDINV21 / ( 1. - 1. / ( EKE/PRM + 1. )**2 ) );
     DEDXM20 = ( 1. - CTHC**2 ) * (EKEtmp-CETHR1)/EDEP;
 
   ]
@@ -3109,12 +3164,12 @@ IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
             IF(IQL = -1) [$EVALUATE DEDXM1 USING EDEDX(ELKE);]
                     ELSE [$EVALUATE DEDXM1 USING PDEDX(ELKE);] "MeV/cm - yana"
 
-  CTHEC = Wtmp * CTHC; "cos(particle theta)*cos(CE ang)"
-  STHEC = SQRT( ( 1.-Wtmp**2 ) * ( 1.-CTHC**2 ) ); "sin(particle tht)*sin(CE)"
+  CTHEC = W(NP) * CTHC; "cos(particle theta)*cos(CE ang)"
+  STHEC = SQRT( ( 1.-W(NP)**2 ) * ( 1.-CTHC**2 ) ); "sin(particle tht)*sin(CE)"
   CTHEPC = CTHEC - STHEC; "cos(particle theta + CE ang)"
   CTHEMC = CTHEC + STHEC; "cos(particle theta - CE ang)"
 
-  DO ITH=1,(NTH+1) [
+  DO ITH=1,(NTH+1) [ "loop thru input polar angle ranges & score CE"
 
   IF( CTHEPC < CTHCLIM1(ITH) & CTHEMC > CTHCLIM2(ITH) ) [ "CE in FOV"
     IF( CTHEMC > CTHCLIM1(ITH) ) [
@@ -3136,7 +3191,8 @@ IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
   SRATIO(ITH) = DEDXM2/DEDXM1; "ratio of energy depositions"
 
   ]
-]ELSE [ SRATIO = SRATIO * 0. ; ] "no CE (E always < CE thr.)"
+
+]ELSE [ SRATIO = SRATIO * 0.; SRATIO1 = SRATIO1 * 0.;] "no CE (E always < CE thr)"
 
 "end score dose/CE ratio for straight transport step"
 
@@ -3260,6 +3316,7 @@ IF( EKEtmp > CETHR1 )[ "E0 > CE thr"
 
 ]"end CE E & Ang spectrum scoring
 
+
 "end yana"
 
         ]"end of straight transport step"
@@ -3276,7 +3333,8 @@ IF( EKEtmp > CETHR1 )[ "E0 > CE thr"
 
             IF( iarg ~= 0 ) [ "stoppers  IARG = 1,2,3,4"
                SRATIO = SRATIO * 0.0; "assumes Delta < CE thr - yana"
-               "SRATIO is just ratio at DELTA"
+               SRATIO1 = SRATIO1 * 0.0 ;
+	       "SRATIO is just ratio at DELTA"
             ]
             ELSE [ "This is a step crossing delta, we set therefore"
                    "sratio to ( (e-delta)*Sratio((e+delta)/2)+     "
@@ -3288,17 +3346,25 @@ IF( EKEtmp > CETHR1 )[ "E0 > CE thr"
 
 "start yana"
 
+
 "SCORE DOSE/CE WITHIN SET POLAR ANGLE RNG - delta-crossing step"
 "- code here actually scores SRATIO"
 "  = PI/K (see write at end) * CE power / stopping power"
 "- no constants (for speed)=> *K/PI in output (see write at end)"
 "- assumptions: constant refractive index, DELTA < CE threshold"
 
-IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
 
-  Wtmp = (z_final-Z(NP))
-         / SQRT( (x_final-X(NP))**2 + (y_final-Y(NP))**2
-                                    + (z_final-Z(NP))**2  );
+"renorm applicable cosines (wasn't found to make a difference but just in case):
+"placed before CE code so it also applies to CE spectra below if scored
+a = SQRT( U(NP)**2 + V(NP)**2 + W(NP)**2 );
+"U(NP) = U(NP)/a; V(NP) = V(NP)/a;
+W(NP) = W(NP)/a;
+a = SQRT( u_final**2 + v_final**2 + w_final**2 );
+"u_final = u_final/a; v_final = v_final/a;
+w_final = w_final/a;
+
+
+IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
 
   EKE = (EKEtmp+CETHR1)/2.; ELKE = LOG(EKE); "can do in EKE asgn. above instead"
 
@@ -3310,17 +3376,56 @@ IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
                    $EVALUATE DEDXM1 USING PDEDX(ELKE);
                ]
 
-  DEDXM20 =  1. -  RINDINV21 / ( 1. - 1. / ( (EKEtmp+CETHR1)/2./PRM + 1. )**2 );
-
+  DEDXM20 = 1. - RINDINV21 / ( 1. - 1. / ( EKE/PRM + 1. )**2 );
   CTHC = SQRT( 1. - DEDXM20 );
-  CTHEC = Wtmp * CTHC;
-  STHEC = SQRT( ( 1.-Wtmp**2 ) * DEDXM20 );
+  a = (EKEtmp-DELTA)/2.;
+
+  IF( EKEtmp-a > CETHR1 ) [ "E always > CE thr on 1st substep"
+  DEDXM20 = DEDXM20 * (EKEtmp-a-CETHR1)/EDEP;
+
+  CTHEC = w_final * CTHC; "cos(particle theta)*cos(CE ang)"
+  STHEC = SQRT( ( 1.-w_final**2 ) * ( 1.-CTHC**2 ) ); "sin(particle tht)*sin(CE)"
+  CTHEPC = CTHEC - STHEC; "cos(particle theta + CE ang)"
+  CTHEMC = CTHEC + STHEC; "cos(particle theta - CE ang)"
+
+  DO ITH = 1,(NTH+1) [ "score CE in each input polar angle range"
+
+  IF( CTHEPC < CTHCLIM1(ITH) & CTHEMC > CTHCLIM2(ITH) ) [ "CE in FOV"
+    IF( CTHEMC > CTHCLIM1(ITH) ) [
+      IF( CTHEPC >= CTHCLIM2(ITH) ) [ "CE cone crosses FOV from above"
+        DEDXM2 = ( PI - ACOS( (CTHCLIM1(ITH)-CTHEC)/STHEC ) ) * DEDXM20;
+      ]ELSE [ "CE cone spans FOV"
+        DEDXM2 = ( ACOS( (CTHCLIM2(ITH)-CTHEC)/STHEC )
+                  -ACOS( (CTHCLIM1(ITH)-CTHEC)/STHEC ) ) * DEDXM20;
+      ]
+    ]ELSE [
+      IF( CTHEPC >= CTHCLIM2(ITH) ) [ "FOV spans CE cone"
+        DEDXM2 = PI * DEDXM20;
+      ]ELSE [ "FOV crosses CE cone from above"
+        DEDXM2 = ACOS( (CTHCLIM2(ITH)-CTHEC)/STHEC ) * DEDXM20;
+      ]
+    ]
+  ]ELSE [DEDXM2=0.;] "no CE in FOV"
+
+  SRATIO1(ITH) = DEDXM2/DEDXM1;
+
+  ]
+
+  DEDXM20 = ( 1. - RINDINV21 / ( 1. - 1. / ( EKE/PRM + 1. )**2 ) ) * a/EDEP ;
+
+  ]ELSE [
+ 
+    SRATIO1 = SRATIO1 * 0. ;
+    DEDXM20 = DEDXM20 * (EKEtmp-CETHR1)/EDEP;
+
+  ]
+
+  CTHEC = W(NP) * CTHC;
+  STHEC = SQRT( ( 1.-W(NP)**2 ) * ( 1. - CTHC**2 ) );
   CTHEPC = CTHEC - STHEC;
   CTHEMC = CTHEC + STHEC;
 
-  DEDXM20 = DEDXM20 * (EKEtmp-CETHR1)/EDEP; "2018/05/01"
-
-  DO ITH = 1,(NTH+1) [
+  DO ITH = 1,(NTH+1) [ "score CE in each input polar angle range"
 
   IF( CTHEPC < CTHCLIM1(ITH) & CTHEMC > CTHCLIM2(ITH) ) [ "CE in FOV"
     IF( CTHEMC > CTHCLIM1(ITH) ) [
@@ -3343,7 +3448,7 @@ IF( EKEtmp > CETHR1 ) [ "E0>CE thr. => yes CE"
 
   ]
 
-]ELSE [ SRATIO = SRATIO * 0. ; ] "no CE (E always < CE thr.)"
+]ELSE [ SRATIO = SRATIO * 0. ; SRATIO1 = SRATIO1 * 0.; ] "no CE (E always < CE thr.)"
 
 "end score dose/CE ratio for delta-crossing step"
 
@@ -3445,6 +3550,7 @@ IF( EKEtmp > CETHR1 )["E0 > CE thr;E always falls < thr on step since delta<thr"
 
 ]"end CE E & Ang spectrum scoring
 
+
 "end yana"
 
                ICROSS=ICROSS+1;  "count the crossers"
@@ -3471,17 +3577,20 @@ IF( EKEtmp > CETHR1 )["E0 > CE thr;E always falls < thr on step since delta<thr"
         IF(IFLAG=0)["do not include bremsstrahlung photons created below PCUT"
                     "or discarded fluorescent energy for IT=1 and 2"
              SCEDPN_TMP(IZ,IX,1)=SCEDPN_TMP(IZ,IX,1)+FTMP;
-             SCEDPN_TMP(IZ,IX,2)=SCEDPN_TMP(IZ,IX,2)+FTMP*SRATIO(1); "yana"
+             SCEDPN_TMP(IZ,IX,2)=SCEDPN_TMP(IZ,IX,2)+FTMP*SRATIO(1) 
+						    + FTMP*SRATIO1(1); "yana"
 	     "start yana"
 	     DO ITH = 1,NTH [
 	       SCEDPNTH_TMP(IZ,IX,ITH) = SCEDPNTH_TMP(IZ,IX,ITH)
-					 + FTMP * SRATIO(ITH+1);
+					 + FTMP * SRATIO(ITH+1)
+					 + FTMP * SRATIO1(ITH+1);
 	     ]
 	     "end yana"
         ]
         IF(IARG=0)[ "SCORE SANS ANY TRACK ENDS -recall we are in the EDEP block"
              SCEDPN_TMP(IZ,IX,3)=SCEDPN_TMP(IZ,IX,3)+FTMP;
-             SCEDPN_TMP(IZ,IX,4)=SCEDPN_TMP(IZ,IX,4)+FTMP*SRATIO(1);
+             SCEDPN_TMP(IZ,IX,4)=SCEDPN_TMP(IZ,IX,4)+FTMP*SRATIO(1)
+						    +FTMP*SRATIO1(1);
         ]
     ]
     ELSE[
@@ -3530,10 +3639,11 @@ IF( EKEtmp > CETHR1 )["E0 > CE thr;E always falls < thr on step since delta<thr"
                                            SCDOSE_TMP3(IZ,IX);
         IF(IFLAG=0)[
            SCEDPN_TMP(IZ,IX,1)=FTMP;
-           SCEDPN_TMP(IZ,IX,2)=FTMP*SRATIO(1); "yana"
+           SCEDPN_TMP(IZ,IX,2)=FTMP*SRATIO(1)+FTMP*SRATIO1(1); "yana"
            "start yana"
            DO ITH = 1,NTH [
-             SCEDPNTH_TMP(IZ,IX,ITH) = FTMP * SRATIO(ITH+1);
+             SCEDPNTH_TMP(IZ,IX,ITH) = FTMP * SRATIO(ITH+1) 
+					+ FTMP*SRATIO1(ITH+1);
            ]
            "end yana"
         ]
@@ -3547,7 +3657,7 @@ IF( EKEtmp > CETHR1 )["E0 > CE thr;E always falls < thr on step since delta<thr"
         ]
         IF(IARG=0)[
            SCEDPN_TMP(IZ,IX,3)=FTMP;
-           SCEDPN_TMP(IZ,IX,4)=FTMP*SRATIO(1);
+           SCEDPN_TMP(IZ,IX,4)=FTMP*SRATIO(1)+FTMP*SRATIO1(1);
         ]
         ELSE[
            SCEDPN_TMP(IZ,IX,3)=0.;
@@ -3561,8 +3671,8 @@ IF( EKEtmp > CETHR1 )["E0 > CE thr;E always falls < thr on step since delta<thr"
     IF((IWATCH > 1) & (IWATCH ~= 4))[
        OUTPUT FTMP/RHOR(IRL),IRL,IARG;
        (5x,' ***EDEP scored = ',E14.7,' MeV. IRL= ',I3,' IARG= ',I3);
-       OUTPUT FTMP*SRATIO(1)/RHO(1),IRL,IARG;
-       (5x,' ***EDEP*SRATIO(1)/RHO(1) scored = ',
+       OUTPUT (FTMP*SRATIO(1)+FTMP*SRATIO1(1))/RHO(1),IRL,IARG;
+       (5x,' ***(EDEP*SRATIO(1)+EDEP*SRATIO1(1))/RHO(1) scored = ',
        E14.7,' MeV. IRL= ',I3,' IARG= ',I3);
                         "not /RHO(2) since one material - yana"
     ]
